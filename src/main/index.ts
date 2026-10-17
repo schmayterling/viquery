@@ -108,11 +108,14 @@ function link(
   sendPort(b, aPeer, port2)
 }
 
+// dev: out/main/index.js -> repo root, independent of how electron was launched
+const repo = join(import.meta.dirname, '../..')
+
 async function binary(name: string): Promise<string> {
   const executable = process.platform === 'win32' ? `${name}.exe` : name
   if (app.isPackaged) return join(process.resourcesPath, 'bin', executable)
   const candidates = [
-    join(app.getAppPath(), 'resources', 'bin'),
+    join(repo, 'resources', 'bin'),
     ...(process.env.PATH ?? '').split(delimiter),
   ]
   for (const directory of candidates) {
@@ -134,7 +137,7 @@ async function startUtilities(): Promise<void> {
     dataDir,
     modelsDir: app.isPackaged
       ? join(process.resourcesPath, 'models')
-      : join(app.getAppPath(), 'models'),
+      : join(repo, 'models'),
     ffmpeg: await binary('ffmpeg'),
     ffprobe: await binary('ffprobe'),
   }
