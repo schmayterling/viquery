@@ -343,21 +343,27 @@ export function NoResults(props: {
   scoped: boolean
   dated: boolean
   hiddenByMedia: number
-  pendingVideos: number
+  pending: SearchResult['pending']
   onAllMedia: () => void
   onClearDates: () => void
   onShowAll: () => void
 }) {
+  const pending = props.pending.images + props.pending.videos
   return (
     <div className="empty">
       <div className="empty-body">
         <h2>No matches for “{props.query}”</h2>
-        {props.pendingVideos > 0 && (
+        {pending > 0 && (
           <p>
-            {count(props.pendingVideos, 'video')}{' '}
-            {props.pendingVideos === 1 ? 'is' : 'are'} still being indexed.
-            Matches from {props.pendingVideos === 1 ? 'it' : 'them'} will appear
-            here as indexing finishes.
+            {[
+              props.pending.images > 0 && count(props.pending.images, 'image'),
+              props.pending.videos > 0 && count(props.pending.videos, 'video'),
+            ]
+              .filter(Boolean)
+              .join(' and ')}{' '}
+            {pending === 1 ? 'is' : 'are'} still being indexed. Matches from{' '}
+            {pending === 1 ? 'it' : 'them'} will appear here as indexing
+            finishes.
           </p>
         )}
         <div className="actions">

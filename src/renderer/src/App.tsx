@@ -368,7 +368,7 @@ export function App() {
               scoped={place.scope.kind !== 'all'}
               dated={dates !== null}
               hiddenByMedia={result.images.length + result.videos.length}
-              pendingVideos={result.pending.videos}
+              pending={result.pending}
               onAllMedia={() =>
                 setPlace({ scope: { kind: 'all' }, media: place.media })
               }
