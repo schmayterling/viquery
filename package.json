@@ -9,6 +9,7 @@
   "scripts": {
     "postinstall": "install-electron && electron-builder install-app-deps",
     "dev": "electron-vite dev",
+    "dev:mock": "VITE_MOCK=1 electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",

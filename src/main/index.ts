@@ -10,8 +10,10 @@ import {
   dialog,
   type IpcMainInvokeEvent,
   ipcMain,
+  Menu,
   MessageChannelMain,
   type MessagePortMain,
+  nativeTheme,
   protocol,
   session,
   shell,
@@ -187,14 +189,46 @@ function trusted(event: IpcMainInvokeEvent): BrowserWindow {
   return win
 }
 
+// design §5 tokens: --surface / --ink; win/linux draw native controls over the topbar
+const chrome = () => {
+  const dark = nativeTheme.shouldUseDarkColors
+  return {
+    height: 40,
+    color: dark ? '#2b2b2b' : '#f5f5f5',
+    symbolColor: dark ? '#ececec' : '#33393a',
+  }
+}
+
+// default menu binds cmd/ctrl +/-/0 to page zoom; the renderer owns those keys
+const menu = () =>
+  Menu.buildFromTemplate([
+    ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'togglefullscreen' },
+      ],
+    },
+    { role: 'windowMenu' },
+  ])
+
 function createWindow(): void {
+  const mac = process.platform === 'darwin'
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
     minWidth: 720,
     minHeight: 480,
     show: false,
-    titleBarStyle: process.platform === 'darwin' ? 'hiddenInset' : 'default',
+    titleBarStyle: mac ? 'hiddenInset' : 'hidden',
+    trafficLightPosition: { x: 12, y: 13 },
+    ...(!mac && { titleBarOverlay: chrome() }),
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#202020' : '#f5f5f5',
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       sandbox: true,
@@ -203,6 +237,11 @@ function createWindow(): void {
     },
   })
   win.once('ready-to-show', () => win.show())
+  if (!mac) {
+    const update = () => win.setTitleBarOverlay(chrome())
+    nativeTheme.on('updated', update)
+    win.once('closed', () => nativeTheme.off('updated', update))
+  }
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
   win.webContents.on('will-navigate', (event, url) => {
     if (url !== rendererURL) event.preventDefault()
@@ -275,6 +314,7 @@ if (primary)
         const path = await catalog.call<string | null>('lookup', id)
         if (path) shell.showItemInFolder(path)
       })
+      Menu.setApplicationMenu(menu())
       createWindow()
       app.on('second-instance', () => {
         const win = BrowserWindow.getAllWindows()[0]
