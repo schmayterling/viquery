@@ -1,0 +1,17 @@
+{
+  "checked": "2026-10-17T09:39:50.716Z",
+  "node": "v26.8.1",
+  "electron": null,
+  "sqlite": "3.53.4",
+  "checks": [
+    "actual document DDL",
+    "vector byte length constraint",
+    "transactional vector log",
+    "fts lookup and delete",
+    "idempotent job key",
+    "lease state constraint",
+    "embedding delete cascade"
+  ],
+  "walTested": false,
+  "note": "in-memory schema check; WAL concurrency, files, migrations, and recovery require app integration tests"
+}

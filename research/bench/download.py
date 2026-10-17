@@ -25,6 +25,9 @@ def download(item):
     return {"repo":repo,"revision":sha,"file":rel,"bytes":path.stat().st_size,"sha256":h.hexdigest(),"url":url}
 jobs=[]
 for repo in repos:
+    if repo not in catalog:
+        catalog[repo]=json.load(urllib.request.urlopen("https://huggingface.co/api/models/"+repo+"?blobs=true",timeout=30))
+        (root/"hub-catalog.json").write_text(json.dumps(catalog,indent=2))
     a=catalog[repo]
     if "siblings" not in a:raise RuntimeError((repo,a))
     for f in a["siblings"]:

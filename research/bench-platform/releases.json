@@ -1,8 +1,33 @@
 {
-  "checked": "2026-10-17T09:17:16.908Z",
+  "checked": "2026-10-17T09:28:43.145Z",
   "method": "npm view; registry metadata for publish timestamp",
   "node": "v26.8.1",
   "packages": [
+    {
+      "name": "node",
+      "status": 0,
+      "version": "26.12.0",
+      "dist-tags": {
+        "v4-lts": "4.9.1",
+        "v6-lts": "6.17.1",
+        "v8-lts": "8.17.0",
+        "v10-lts": "10.24.1",
+        "v12-lts": "12.22.12",
+        "v14-lts": "14.21.3",
+        "v16-lts": "16.20.2",
+        "v18-lts": "18.19.1",
+        "v20-lts": "20.11.1",
+        "latest": "26.12.0"
+      },
+      "engines": {
+        "npm": ">=5.0.0"
+      },
+      "license": "MIT",
+      "dist.unpackedSize": 1863,
+      "repository.url": "git+https://github.com/aredridel/node-bin-gen.git",
+      "published": "2026-10-15T00:52:06.283Z",
+      "source": "https://registry.npmjs.org/node/26.12.0"
+    },
     {
       "name": "electron",
       "status": 0,

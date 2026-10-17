@@ -84,7 +84,8 @@ if (isMainThread) {
   const worker = new Worker(new URL(import.meta.url));
   worker.once('message', result => {
     result.totalWorkerLifetimeMs = performance.now() - start;
-    const path = new URL(`./scan-${rows}x${dims}.json`, import.meta.url);
+    const suffix = process.versions.electron ? `-electron-${process.versions.electron}` : '';
+    const path = new URL(`./scan-${rows}x${dims}${suffix}.json`, import.meta.url);
     writeFileSync(path, JSON.stringify(result, null, 2) + '\n');
     console.log(JSON.stringify(result, null, 2));
   });
@@ -98,5 +99,5 @@ if (isMainThread) {
   for (let i = 0; i < floats.length; i++) { const v = random() * 2 - 1; floats[i] = v; ints[i] = Math.round(v * 127); }
   const setupMs = performance.now() - started;
   const results = [measure('float32', scanFloat32, floats, Float32Array), measure('int8', scanInt8, ints, Int8Array)];
-  parentPort.postMessage({ checked: new Date().toISOString(), node: process.version, v8: process.versions.v8, platform: process.platform, arch: process.arch, cpu: os.cpus()[0].model, logicalCpus: os.cpus().length, totalMemoryBytes: os.totalmem(), rows, dims, k, runs, warmups, setupMs, correctness: 'both typed-array scans match independent full-sort reference', workload: 'seeded uniform random row-major matrix; new query each run; dot product plus exact top-k heap; warm in-memory; one worker thread; excludes embedding/ipc/db/disk', results, memory: process.memoryUsage() });
+  parentPort.postMessage({ checked: new Date().toISOString(), node: process.version, electron: process.versions.electron ?? null, v8: process.versions.v8, platform: process.platform, arch: process.arch, cpu: os.cpus()[0].model, logicalCpus: os.cpus().length, totalMemoryBytes: os.totalmem(), rows, dims, k, runs, warmups, setupMs, correctness: 'both typed-array scans match independent full-sort reference', workload: 'seeded uniform random row-major matrix; new query each run; dot product plus exact top-k heap; warm in-memory; one worker thread; excludes embedding/ipc/db/disk', results, memory: process.memoryUsage() });
 }

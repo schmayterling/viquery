@@ -1,0 +1,38 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { DatabaseSync } = require('node:sqlite');
+
+// Validate document's actual DDL, not a separately maintained schema copy.
+const doc = fs.readFileSync(path.join(__dirname, '..', 'platform.md'), 'utf8');
+const sql = doc.match(/```sql\n([\s\S]*?)\n```/)[1];
+const db = new DatabaseSync(':memory:');
+db.exec(sql);
+const hash = Buffer.alloc(32, 1);
+db.prepare("INSERT INTO roots(id,path,state) VALUES (1,'/library','online')").run();
+db.prepare("INSERT INTO media(id,content_hash,bytes,kind,mime) VALUES (1,?,100,'image','image/jpeg')").run(hash);
+db.exec("INSERT INTO segments(id,media_id,pipeline_revision,kind,start_ms,end_ms,caption) VALUES (1,1,'v1','image',0,0,'cat on train')");
+db.exec("INSERT INTO models(id,space_id,dimension,weights_sha256,transform_revision) VALUES ('m1','s1',2,'digest','v1')");
+const vector = Buffer.from(new Float32Array([.6, .8]).buffer);
+db.prepare("INSERT INTO embeddings(id,segment_id,model_id,dimension,vector_f32) VALUES (1,1,'m1',2,?)").run(vector);
+assert.throws(() => db.exec("UPDATE embeddings SET vector_f32=X'00' WHERE id=1"), /CHECK constraint/);
+db.prepare('UPDATE embeddings SET vector_f32=? WHERE id=1').run(vector);
+assert.equal(db.prepare('SELECT count(*) AS n FROM vector_changes').get().n, 2);
+db.prepare('INSERT INTO search_fts(rowid,filename,caption,media_id,segment_id) VALUES (1,?,?,1,1)').run('cat.jpg','cat on train');
+assert.equal(db.prepare("SELECT count(*) AS n FROM search_fts WHERE search_fts MATCH 'train'").get().n, 1);
+const insertJob = db.prepare("INSERT INTO jobs(content_hash,stage,pipeline_revision,state) VALUES (?,'embed','v1','queued')");
+insertJob.run(hash);
+assert.throws(() => insertJob.run(hash), /UNIQUE constraint/);
+assert.throws(() => db.exec("UPDATE jobs SET state='running' WHERE id=1"), /CHECK constraint/);
+db.exec("UPDATE jobs SET state='running',lease_token='lease1',lease_until_ms=100 WHERE id=1");
+db.exec("UPDATE jobs SET state='done',lease_token=NULL,lease_until_ms=NULL WHERE id=1");
+assert.equal(db.prepare('SELECT state FROM jobs WHERE id=1').get().state, 'done');
+db.exec('DELETE FROM segments WHERE id=1');
+assert.equal(db.prepare('SELECT count(*) AS n FROM embeddings').get().n, 0);
+assert.equal(db.prepare('SELECT count(*) AS n FROM search_fts').get().n, 0);
+assert.deepEqual(db.prepare('SELECT operation FROM vector_changes ORDER BY seq').all().map(r=>r.operation), ['upsert','upsert','delete']);
+const result = { checked: new Date().toISOString(), node: process.version, electron: process.versions.electron ?? null, sqlite: db.prepare('SELECT sqlite_version() AS version').get().version, checks: ['actual document DDL', 'vector byte length constraint', 'transactional vector log', 'fts lookup and delete', 'idempotent job key', 'lease state constraint', 'embedding delete cascade'], walTested: false, note: 'in-memory schema check; WAL concurrency, files, migrations, and recovery require app integration tests' };
+db.close();
+const suffix = process.versions.electron ? `electron-${process.versions.electron}` : `node-${process.version}`;
+fs.writeFileSync(path.join(__dirname, `schema-${suffix}.json`), JSON.stringify(result,null,2)+'\n');
+console.log(JSON.stringify(result));
