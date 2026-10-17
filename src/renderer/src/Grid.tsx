@@ -396,7 +396,7 @@ function Tile({
   const mounted = useRef(performance.now())
   const label = [
     item?.name,
-    video ? `video, ${timecode(duration)}` : 'image',
+    video ? (duration ? `video, ${timecode(duration)}` : 'video') : 'image',
     longDay(at(list.takenAt, i)),
   ]
     .filter(Boolean)
@@ -463,7 +463,7 @@ function Tile({
             <span />
           </div>
           <span className="scrub-time" />
-          <span className="dur">{timecode(duration)}</span>
+          {duration > 0 && <span className="dur">{timecode(duration)}</span>}
         </>
       )}
       {selected && (
