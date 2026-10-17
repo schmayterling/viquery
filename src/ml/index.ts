@@ -1,4 +1,5 @@
 import { join, resolve, sep } from 'node:path'
+import { deflateSync } from 'node:zlib'
 import {
   AutoModel,
   AutoProcessor,
@@ -7,6 +8,7 @@ import {
   mean_pooling,
   pipeline,
   RawImage,
+  Tensor as TransformersTensor,
 } from '@huggingface/transformers'
 import { InferenceSession, Tensor } from 'onnxruntime-node'
 import type { TextEncoders } from '../shared/protocol.ts'
@@ -140,7 +142,31 @@ export async function loadSpeechEncoder(modelsDir: string) {
     local_files_only: true,
     session_options: sessionOptions(THREADS.compute),
   })
+  // whisper's own non-speech evidence, which transformers.js 4.3.1 does not expose: the
+  // <|nocaptions|> probability right after <|startoftranscript|> (openai/whisper decoding.py
+  // no_speech_prob; token ids are base.en's). launch.mp4 speech .017; sine tones .52-.56; pulsed beeps .17-.38.
+  const noSpeech = async (audio: Float32Array) => {
+    const { input_features } = await transcribe.processor(
+      audio.subarray(0, 30 * 16000),
+    )
+    const { logits } = await transcribe.model({
+      input_features,
+      decoder_input_ids: new TransformersTensor(
+        'int64',
+        BigInt64Array.from([50257n]),
+        [1, 1],
+      ),
+    })
+    const scores = (logits.data as Float32Array).subarray(-logits.dims.at(-1))
+    const max = Math.max(...scores)
+    let total = 0
+    for (const score of scores) total += Math.exp(score - max)
+    return Math.exp((scores[50361] as number) - max) / total
+  }
   return async (audio: Float32Array) => {
+    // ponytail: one check per span (its first 30s); speech after 30s of non-speech without a
+    // silence gap is dropped with it. upgrade: check each 30s chunk.
+    if ((await noSpeech(audio)) > 0.5) return []
     const output = await transcribe(audio, {
       return_timestamps: true,
       chunk_length_s: 30,
@@ -160,6 +186,8 @@ export async function loadSpeechEncoder(modelsDir: string) {
       )
       if (
         !text ||
+        // repetition loops ("BEEEE…"): openai/whisper compression_ratio_threshold 2.4
+        Buffer.byteLength(text) / deflateSync(text).length > 2.4 ||
         !Number.isFinite(startMs) ||
         !Number.isFinite(endMs) ||
         endMs <= startMs

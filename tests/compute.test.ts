@@ -182,6 +182,28 @@ test('compute indexes fixture metadata, previews, visual moments and speech offl
     (await compute.speech({ mediaId: 7, path: muted })).segments,
     [],
   )
+  // a pure tone is audible but not speech: no invented transcript
+  const tone = join(dataDir, 'tone.mp4')
+  await promisify(execFile)(tools.ffmpeg, [
+    '-v',
+    'error',
+    '-y',
+    '-i',
+    muted,
+    '-f',
+    'lavfi',
+    '-i',
+    'sine=frequency=440:duration=1',
+    '-c:v',
+    'copy',
+    '-c:a',
+    'aac',
+    tone,
+  ])
+  assert.deepEqual(
+    (await compute.speech({ mediaId: 10, path: tone })).segments,
+    [],
+  )
 
   const staticVideo = join(dataDir, 'static.mp4')
   await promisify(execFile)(tools.ffmpeg, [
