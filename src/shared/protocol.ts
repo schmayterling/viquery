@@ -61,7 +61,7 @@ export type CatalogChange = { removedMedia: MediaId[] }
 
 // main -> utility handshake over process.parentPort: one 'init', then one 'port'
 // message per peer with the MessagePortMain in event.ports[0].
-export type Peer = 'renderer' | 'catalog' | 'compute' | 'search'
+export type Peer = 'main' | 'renderer' | 'catalog' | 'compute' | 'search'
 export type UtilityMessage =
   | {
       type: 'init'
