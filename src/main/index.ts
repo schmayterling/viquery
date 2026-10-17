@@ -197,7 +197,7 @@ const chrome = () => {
   const dark = nativeTheme.shouldUseDarkColors
   return {
     height: 40,
-    color: dark ? '#2b2b2b' : '#f5f5f5',
+    color: dark ? '#202020' : '#f5f5f5',
     symbolColor: dark ? '#ececec' : '#33393a',
   }
 }
