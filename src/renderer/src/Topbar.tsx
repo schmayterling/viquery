@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react'
 import { type RefObject, useEffect, useRef, useState } from 'react'
+import { at } from './format'
 
 export const ROW_HEIGHTS = [120, 160, 196, 260] as const
 const SIZE_NAMES = ['Small', 'Medium', 'Large', 'Extra large']
@@ -117,7 +118,7 @@ function SearchField(props: Props & { mac: boolean }) {
           } else if (e.key === 'Enter') {
             e.preventDefault()
             if (open && pick >= 0) {
-              onQuery(recents[pick]!)
+              onQuery(at(recents, pick))
               setPick(-1)
             } else props.onSubmit()
           } else if (e.key === 'Escape') {

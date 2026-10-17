@@ -1,6 +1,6 @@
 import justifiedLayout from 'justified-layout'
 import type { LibraryIndex } from '../../shared/api'
-import { month } from './format'
+import { at, month } from './format'
 
 export const HEAD = 44
 export const GAP = 4
@@ -35,15 +35,16 @@ export function monthGroups(index: LibraryIndex): Group[] {
   let from = 0
   let to = -1
   for (let i = 0; i < t.length; i++) {
-    const ti = t[i]!
+    const ti = at(t, i)
     if (ti >= from && ti < to) continue
-    if (i > 0) groups.push({ label: month(t[start]!), start, end: i })
+    if (i > 0) groups.push({ label: month(at(t, start)), start, end: i })
     const d = new Date(ti)
     from = new Date(d.getFullYear(), d.getMonth(), 1).getTime()
     to = new Date(d.getFullYear(), d.getMonth() + 1, 1).getTime()
     start = i
   }
-  if (t.length) groups.push({ label: month(t[start]!), start, end: t.length })
+  if (t.length)
+    groups.push({ label: month(at(t, start)), start, end: t.length })
   return groups
 }
 
@@ -80,7 +81,7 @@ export function justify(
     )
     let current: Extract<Row, { kind: 'tiles' }> | undefined
     for (let k = 0; k < boxes.length; k++) {
-      const b = boxes[k]!
+      const b = at(boxes, k)
       const i = g.start + k
       if (!current || y + b.top !== current.top) {
         current = {
@@ -110,13 +111,14 @@ export function rowAt(geo: Geometry, y: number) {
   let hi = geo.rows.length - 1
   while (lo < hi) {
     const mid = (lo + hi + 1) >> 1
-    if (geo.rows[mid]!.top <= y) lo = mid
+    if (at(geo.rows, mid).top <= y) lo = mid
     else hi = mid - 1
   }
   return lo
 }
 
-const center = (geo: Geometry, i: number) => geo.left[i]! + geo.width[i]! / 2
+const center = (geo: Geometry, i: number) =>
+  at(geo.left, i) + at(geo.width, i) / 2
 
 function nearestInRow(geo: Geometry, r: number, x: number) {
   const row = geo.rows[r]
@@ -130,7 +132,7 @@ function nearestInRow(geo: Geometry, r: number, x: number) {
 
 function tilesRow(geo: Geometry, r: number, step: 1 | -1) {
   for (; r >= 0 && r < geo.rows.length; r += step)
-    if (geo.rows[r]!.kind === 'tiles') return r
+    if (at(geo.rows, r).kind === 'tiles') return r
   return -1
 }
 
@@ -143,7 +145,7 @@ export function move(
 ): number {
   const n = geo.left.length
   const x = center(geo, i)
-  const r = geo.row[i]!
+  const r = at(geo.row, i)
   switch (key) {
     case 'ArrowLeft':
       return Math.max(0, i - 1)
@@ -162,7 +164,7 @@ export function move(
     case 'PageUp':
     case 'PageDown': {
       const step = key === 'PageUp' ? -1 : 1
-      const y = geo.rows[r]!.top + step * viewport
+      const y = at(geo.rows, r).top + step * viewport
       const target = tilesRow(geo, rowAt(geo, Math.max(0, y)), step)
       return target < 0 ? (step < 0 ? 0 : n - 1) : nearestInRow(geo, target, x)
     }

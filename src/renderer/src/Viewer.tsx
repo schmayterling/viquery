@@ -29,8 +29,8 @@ import {
   mediaUrl,
   type Scene,
 } from '../../shared/api'
-import { bytes, count, longDay, num, span, timecode } from './format'
-import type { Open } from './Grid'
+import { at, bytes, count, longDay, num, span, timecode } from './format'
+import { hideBroken, type Open } from './Grid'
 import { ensureItems, getItem, useItemsVersion } from './items'
 
 export type ViewerState = {
@@ -54,7 +54,7 @@ const revealLabel = () =>
   ] ?? 'Show in folder'
 
 export function Viewer(props: Props) {
-  const id = props.ids[props.index]!
+  const id = at(props.ids, props.index)
   useItemsVersion()
   useEffect(() => {
     // neighbours too, so arrowing is instant
@@ -123,6 +123,7 @@ export function Viewer(props: Props) {
                 src={mediaUrl.original(id)}
                 alt={item?.name ?? ''}
                 decoding="async"
+                onError={hideBroken}
               />
             )}
           </div>
@@ -137,7 +138,6 @@ export function Viewer(props: Props) {
     )
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: viewer-wide shortcuts; every control inside is a button
     <div
       ref={ref}
       className="viewer"
@@ -240,7 +240,7 @@ function Missing({
 }) {
   return (
     <div className="missing" role="alert">
-      <img src={mediaUrl.thumb(item.id)} alt="" />
+      <img src={mediaUrl.thumb(item.id)} alt="" onError={hideBroken} />
       <p>
         {folder?.state === 'offline'
           ? `${folder.name} isn't connected. Connect the drive to open the original.`
@@ -518,7 +518,6 @@ function Player(props: {
         {missing ? (
           <Missing item={item} folder={props.folder} />
         ) : (
-          // biome-ignore lint/a11y/useMediaCaption: transcripts arrive with speech indexing; no caption track yet
           <video
             ref={video}
             src={mediaUrl.original(item.id)}
@@ -731,6 +730,7 @@ function Player(props: {
                 alt=""
                 loading="lazy"
                 decoding="async"
+                onError={hideBroken}
               />
               {props.query && matching.has(s.id) && (
                 <span className="range">{span(s.startMs, s.endMs)}</span>

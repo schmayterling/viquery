@@ -114,12 +114,16 @@
       0 1px 2px rgb(0 0 0 / 30%), 0 8px 24px -12px rgb(0 0 0 / 50%);
   }
 }
+/* global kill switch (mux styles.css): it has to beat every component transition */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion kill switch */
     animation-duration: 1ms !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion kill switch */
     animation-iteration-count: 1 !important;
+    /* biome-ignore lint/complexity/noImportantStyles: reduced-motion kill switch */
     transition-duration: 0s !important;
   }
 }
@@ -370,7 +374,7 @@ p {
   height: 22px;
   border-radius: 5px;
 }
-.search .clear .lucide {
+.clear .lucide {
   width: 14px;
   height: 14px;
 }
@@ -421,7 +425,7 @@ p {
   border-radius: var(--radius-control);
   text-align: left;
 }
-.recents button .lucide {
+.recents .lucide {
   width: 14px;
   height: 14px;
   color: var(--muted);
@@ -467,10 +471,10 @@ p {
   height: 22px;
   opacity: 0;
 }
-.side-group:is(:hover, :focus-within) .side-heading .icon-btn {
+:where(.side-group:is(:hover, :focus-within)) .side-heading .icon-btn {
   opacity: 1;
 }
-.side-heading .icon-btn .lucide {
+.side-heading .lucide {
   width: 14px;
   height: 14px;
 }
@@ -588,13 +592,13 @@ p {
   height: 14px;
   color: var(--muted);
 }
-.menu-item[aria-checked="true"] .check-mark {
-  visibility: visible;
-}
 .menu-item .check-mark {
   visibility: hidden;
   margin-left: auto;
   color: var(--accent);
+}
+.menu-item[aria-checked="true"] .check-mark {
+  visibility: visible;
 }
 .menu hr {
   margin: 4px 6px;
@@ -611,7 +615,7 @@ p {
   color: var(--ink);
   font-weight: 500;
 }
-.menu .confirm .actions {
+.confirm > .actions {
   display: flex;
   justify-content: flex-end;
   gap: 6px;
@@ -700,7 +704,7 @@ p {
   height: 22px;
   margin-right: -4px;
 }
-.index-line .icon-btn .lucide {
+.index-line .lucide {
   width: 14px;
   height: 14px;
 }
@@ -726,7 +730,7 @@ p {
   transform-origin: left;
   transition: transform 400ms var(--ease-out);
 }
-.meter[data-paused] > span {
+.meter:where([data-paused]) > span {
   background: var(--muted);
 }
 .index-sub {
@@ -882,7 +886,7 @@ p {
   border-radius: 0 5px 5px 0;
   color: var(--muted);
 }
-.chip-set .x .lucide {
+.x .lucide {
   width: 14px;
   height: 14px;
 }
@@ -905,10 +909,6 @@ p {
 }
 .scroll:focus-visible {
   outline: 0;
-}
-.scroll > .empty {
-  min-height: 100%;
-  padding-bottom: 48px;
 }
 .status-line {
   margin: 0 0 var(--space-1);
@@ -1006,23 +1006,10 @@ p {
 .tile .scrub-time {
   left: 7px;
 }
-.tile:focus-visible {
+/* the tile's own outline is not clipped by its paint containment */
+.tile:is(:focus-visible, [aria-selected="true"]) {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
-  contain: layout;
-  overflow: visible;
-}
-.tile:focus-visible > img {
-  border-radius: var(--radius-tile);
-}
-.tile[aria-selected="true"] {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-  contain: layout;
-  overflow: visible;
-}
-.tile[aria-selected="true"] > img {
-  border-radius: var(--radius-tile);
 }
 .check {
   position: absolute;
@@ -1110,7 +1097,7 @@ p {
   overflow: hidden;
   cursor: pointer;
 }
-.moment .frame img {
+.frame img {
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -1136,7 +1123,7 @@ p {
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 6px rgb(0 0 0 / 50%);
 }
-.moment .range .lucide {
+.range .lucide {
   width: 11px;
   height: 11px;
   fill: currentColor;
@@ -1224,6 +1211,10 @@ p {
   padding: var(--space-6);
   overflow-y: auto;
 }
+.scroll > .empty {
+  min-height: 100%;
+  padding-bottom: 48px;
+}
 .empty-body {
   width: 100%;
   max-width: 420px;
@@ -1256,7 +1247,7 @@ p {
   margin-top: 2px;
   color: var(--accent);
 }
-.actions {
+.empty-body .actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);

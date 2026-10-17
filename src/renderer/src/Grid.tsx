@@ -4,6 +4,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   type RefObject,
+  type SyntheticEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -17,7 +18,7 @@ import {
   type MediaItem,
   mediaUrl,
 } from '../../shared/api'
-import { longDay, num, timecode } from './format'
+import { at, longDay, num, timecode } from './format'
 import { ensureItems, getItem, useItemsVersion } from './items'
 import { type Geometry, type Group, HEAD, justify, move, rowAt } from './layout'
 
@@ -66,7 +67,7 @@ export function Grid(props: Props) {
   const [margin, setMargin] = useState(0)
   const [active, setActive] = useState(0)
   const anchor = useRef(0)
-  const pendingFocus = useRef(false)
+  const focusToken = useRef(0)
   useItemsVersion()
 
   useLayoutEffect(() => {
@@ -97,7 +98,7 @@ export function Grid(props: Props) {
     [list, groups, width, rowHeight, square],
   )
   const size = useCallback(
-    (r: number) => (geo.rows[r + 1]?.top ?? geo.height) - geo.rows[r]!.top,
+    (r: number) => (geo.rows[r + 1]?.top ?? geo.height) - at(geo.rows, r).top,
     [geo],
   )
   // a new key fn identity makes the virtualizer drop cached sizes when geometry changes
@@ -125,9 +126,9 @@ export function Grid(props: Props) {
     if (v.isScrolling || last < 0) return
     const ids: MediaId[] = []
     for (let r = first; r <= last; r++) {
-      const row = geo.rows[r]!
+      const row = at(geo.rows, r)
       if (row.kind === 'tiles')
-        for (let i = row.start; i < row.end; i++) ids.push(list.ids[i]!)
+        for (let i = row.start; i < row.end; i++) ids.push(at(list.ids, i))
     }
     ensureItems(ids)
   }, [first, last, geo, list, v.isScrolling])
@@ -139,7 +140,7 @@ export function Grid(props: Props) {
     (i: number) => {
       const scroller = scrollRef.current
       if (!scroller) return
-      const row = geo.rows[geo.row[i]!]!
+      const row = at(geo.rows, at(geo.row, i))
       const top = margin + row.top
       const pad = props.sticky ? HEAD : 0
       if (top - pad < scroller.scrollTop) scroller.scrollTop = top - pad
@@ -149,43 +150,45 @@ export function Grid(props: Props) {
     [geo, margin, scrollRef, props.sticky],
   )
 
+  // focus lands once the target row is mounted; a far jump needs a scroll-driven render first
   const focusTile = useCallback(
     (i: number) => {
       setActive(i)
       reveal(i)
-      pendingFocus.current = true
+      const token = ++focusToken.current
+      let frames = 0
+      const attempt = () => {
+        if (token !== focusToken.current) return
+        const el = gridRef.current?.querySelector<HTMLElement>(
+          `[data-index="${i}"]`,
+        )
+        if (el) el.focus({ preventScroll: true })
+        else if (frames++ < 30) requestAnimationFrame(attempt)
+      }
+      attempt()
     },
     [reveal],
   )
-  // focus lands once the target row is mounted (it may need a scroll-driven render first)
-  useEffect(() => {
-    if (!pendingFocus.current) return
-    const el = gridRef.current?.querySelector<HTMLElement>(
-      `[data-index="${current}"]`,
-    )
-    if (el) {
-      pendingFocus.current = false
-      el.focus({ preventScroll: true })
-    }
-  })
 
   const { focusRequest } = props
   useEffect(() => {
     if (!focusRequest) return
     const i = list.ids.indexOf(focusRequest.id)
-    if (i >= 0) focusTile(i)
+    if (i < 0) return
+    anchor.current = i
+    focusTile(i)
   }, [focusRequest, list, focusTile])
 
   const selectRange = (from: number, to: number, add: boolean) => {
     const next = new Set(add ? selection : [])
     for (let i = Math.min(from, to); i <= Math.max(from, to); i++)
-      next.add(list.ids[i]!)
+      next.add(at(list.ids, i))
     onSelect(next)
   }
 
   const onPointerDown = (e: PointerEvent, i: number) => {
     if (e.button !== 0) return
-    const id = list.ids[i]!
+    const id = at(list.ids, i)
     setActive(i)
     if (e.shiftKey)
       return selectRange(anchor.current, i, e.metaKey || e.ctrlKey)
@@ -227,7 +230,7 @@ export function Grid(props: Props) {
   }
 
   const activeMounted = rows.some((r) => {
-    const row = geo.rows[r.index]!
+    const row = at(geo.rows, r.index)
     return row.kind === 'tiles' && current >= row.start && current < row.end
   })
 
@@ -235,14 +238,14 @@ export function Grid(props: Props) {
   let stuck = null
   if (props.sticky && geo.rows.length && width) {
     const y = Math.max(0, (v.scrollOffset ?? 0) - margin)
-    const row = geo.rows[rowAt(geo, y)]!
+    const row = at(geo.rows, rowAt(geo, y))
     const next = geo.heads[row.group + 1]
     const push =
-      next === undefined ? 0 : Math.min(0, geo.rows[next]!.top - y - HEAD)
+      next === undefined ? 0 : Math.min(0, at(geo.rows, next).top - y - HEAD)
     stuck = (
       <div className="sticky" aria-hidden="true">
         <GroupHead
-          group={groups[row.group]!}
+          group={at(groups, row.group)}
           style={{ translate: `0 ${push}px` }}
         />
       </div>
@@ -264,7 +267,7 @@ export function Grid(props: Props) {
       onFocus={(e) => {
         if (e.target !== e.currentTarget || !rows.length) return
         const row = geo.rows.find(
-          (r, k) => k >= rows[0]!.index && r.kind === 'tiles',
+          (r, k) => k >= at(rows, 0).index && r.kind === 'tiles',
         )
         if (row?.kind === 'tiles')
           focusTile(activeMounted ? current : row.start)
@@ -272,7 +275,7 @@ export function Grid(props: Props) {
     >
       {stuck}
       {rows.map((vr) => {
-        const row = geo.rows[vr.index]!
+        const row = at(geo.rows, vr.index)
         return (
           // biome-ignore lint/a11y/useFocusableInteractive: rows hold the focusable cells
           // biome-ignore lint/a11y/useSemanticElements: absolutely positioned virtual rows, not a table
@@ -287,17 +290,17 @@ export function Grid(props: Props) {
             }}
           >
             {row.kind === 'head' ? (
-              <GroupHead group={groups[row.group]!} role="rowheader" />
+              <GroupHead group={at(groups, row.group)} role="rowheader" />
             ) : (
               tiles(row.start, row.end, (i) => (
                 <Tile
-                  key={list.ids[i]!}
+                  key={at(list.ids, i)}
                   list={list}
                   geo={geo}
                   index={i}
                   eager={vr.index < 6}
                   active={i === current}
-                  selected={selection.has(list.ids[i]!)}
+                  selected={selection.has(at(list.ids, i))}
                   onPointerDown={(e) => onPointerDown(e, i)}
                   onDoubleClick={() => onOpen(i, 'viewer')}
                 />
@@ -355,6 +358,11 @@ export function showSprite(
   el.setAttribute('data-scrub', '')
 }
 
+// broken thumbnails and frames fall back to the --tile fill, never the broken-image glyph
+export const hideBroken = (e: SyntheticEvent<HTMLImageElement>) => {
+  e.currentTarget.style.visibility = 'hidden'
+}
+
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
 
 type TileProps = {
@@ -377,15 +385,19 @@ function Tile({
   selected,
   ...handlers
 }: TileProps) {
-  const id = list.ids[i]!
+  const id = at(list.ids, i)
   const video = list.kind[i] === 1
-  const duration = list.durationMs[i]!
+  const duration = at(list.durationMs, i)
   const item = getItem(id)
+  // no thumbnail until the catalog marks it ready; a failed load keeps the tile fill and
+  // retries with the next index (refetched after every thumb job)
+  const [failed, setFailed] = useState<LibraryIndex | null>(null)
+  const ready = list.ready[i] === 1 && failed !== list
   const mounted = useRef(performance.now())
   const label = [
     item?.name,
-    video ? `video, ${timecode(duration)}` : 'image',
-    longDay(list.takenAt[i]!),
+    video ? (duration ? `video, ${timecode(duration)}` : 'video') : 'image',
+    longDay(at(list.takenAt, i)),
   ]
     .filter(Boolean)
     .join(', ')
@@ -416,7 +428,7 @@ function Tile({
       tabIndex={active ? 0 : -1}
       aria-selected={selected}
       aria-label={label}
-      style={{ left: geo.left[i]!, width: geo.width[i]! }}
+      style={{ left: at(geo.left, i), width: at(geo.width, i) }}
       onPointerDown={handlers.onPointerDown}
       onDoubleClick={handlers.onDoubleClick}
       onPointerEnter={video ? () => ensureItems([id]) : undefined}
@@ -425,22 +437,25 @@ function Tile({
         video ? (e) => e.currentTarget.removeAttribute('data-scrub') : undefined
       }
     >
-      <img
-        src={mediaUrl.thumb(id)}
-        alt=""
-        decoding="async"
-        loading={eager ? 'eager' : 'lazy'}
-        fetchPriority={eager ? 'high' : 'auto'}
-        draggable={false}
-        onLoad={(e) => {
-          // fade only late arrivals; instant ones would flicker while scrolling fast (design §9.3)
-          if (e.timeStamp - mounted.current > 100 && !reducedMotion.matches)
-            e.currentTarget.animate(
-              { opacity: [0, 1] },
-              { duration: 160, easing: 'ease-out' },
-            )
-        }}
-      />
+      {ready && (
+        <img
+          src={mediaUrl.thumb(id)}
+          alt=""
+          decoding="async"
+          loading={eager ? 'eager' : 'lazy'}
+          fetchPriority={eager ? 'high' : 'auto'}
+          draggable={false}
+          onLoad={(e) => {
+            // fade only late arrivals; instant ones would flicker while scrolling fast (design §9.3)
+            if (e.timeStamp - mounted.current > 100 && !reducedMotion.matches)
+              e.currentTarget.animate(
+                { opacity: [0, 1] },
+                { duration: 160, easing: 'ease-out' },
+              )
+          }}
+          onError={() => setFailed(list)}
+        />
+      )}
       {video && (
         <>
           <div className="sprite" />
@@ -448,7 +463,7 @@ function Tile({
             <span />
           </div>
           <span className="scrub-time" />
-          <span className="dur">{timecode(duration)}</span>
+          {duration > 0 && <span className="dur">{timecode(duration)}</span>}
         </>
       )}
       {selected && (
