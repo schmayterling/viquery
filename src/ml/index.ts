@@ -44,13 +44,17 @@ function unitVector(data: unknown, dimensions: number): Float32Array {
   return vector.map((value) => value / norm)
 }
 
-async function clipText(modelsDir: string) {
+export async function loadClipTextEncoder(
+  modelsDir: string,
+  threads: number = THREADS.search,
+) {
+  localModels(modelsDir)
   const tokenizer = await AutoTokenizer.from_pretrained(CLIP, {
     local_files_only: true,
   })
   const session = await InferenceSession.create(
     join(modelsDir, CLIP, 'onnx/text_model_int8.onnx'),
-    sessionOptions(THREADS.search),
+    sessionOptions(threads),
   )
   return async (text: string) => {
     const tokens = tokenizer(text, {
@@ -99,7 +103,7 @@ export async function loadTextEncoders(
   modelsDir: string,
 ): Promise<TextEncoders> {
   localModels(modelsDir)
-  const clip = await clipText(modelsDir)
+  const clip = await loadClipTextEncoder(modelsDir)
   const sentence = await loadSentenceEncoder(modelsDir, THREADS.search)
   return { clip, sentence }
 }
