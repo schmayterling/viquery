@@ -1,0 +1,12 @@
+{
+  "name": "viquery-model-bench",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "node bench.mjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.1",
+    "onnxruntime-node": "1.30.0"
+  }
+}
