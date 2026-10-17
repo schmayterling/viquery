@@ -4,7 +4,7 @@ import type { MediaId, MediaKind } from './api'
 
 // bump a generation when its model, preprocessing, or segmentation changes.
 // rows from older generations are ignored by search and re-enqueued by catalog.
-export const GENERATION = { visual: 1, speech: 1, ocr: 1 } as const
+export const GENERATION = { visual: 1, speech: 2, ocr: 1 } as const
 
 export type Probe = {
   kind: MediaKind

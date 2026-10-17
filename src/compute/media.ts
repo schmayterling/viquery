@@ -18,16 +18,28 @@ type Stream = {
   width?: number
   height?: number
   duration?: string
+  start_time?: string
   tags?: Record<string, string>
   side_data_list?: { rotation?: number }[]
   disposition?: { attached_pic?: number }
 }
 type Container = {
   streams: Stream[]
-  format: { duration?: string; tags?: Record<string, string> }
+  format: {
+    duration?: string
+    start_time?: string
+    tags?: Record<string, string>
+  }
 }
 
 sharp.concurrency(THREADS.sharp)
+
+const AUDIO_WINDOW_S = 300 // 19 MB of 16 kHz f32 pcm per window
+
+function seconds(value: string | undefined, fallback: number): number {
+  const parsed = Number(value)
+  return value !== undefined && Number.isFinite(parsed) ? parsed : fallback
+}
 
 async function run(
   binary: string,
@@ -481,67 +493,88 @@ export function mediaTools(binaries: Binaries) {
     }
   }
 
-  async function audio(path: string, durationMs: number) {
-    const silence: { start: number; end: number }[] = []
-    let start = 0
-    // Preserve delayed audio and timeline gaps as silence rather than shifting cues to zero.
-    // FFmpeg 8+: https://ffmpeg.org/ffmpeg-resampler.html#Resampler-Options
-    const pcm = await ffmpeg(
-      [
-        '-v',
-        'info',
-        '-i',
-        path,
-        '-map',
-        '0:a:0',
-        '-vn',
-        '-ac',
-        '1',
-        '-ar',
-        '16000',
-        '-t',
-        String(durationMs / 1000),
-        '-af',
-        'aresample=16000:async=1:first_pts=0,silencedetect=noise=-50dB:d=0.5',
-        '-f',
-        'f32le',
-        'pipe:1',
-      ],
-      (line) => {
-        const begin = /silence_start: ([\d.e+-]+)/.exec(line)
-        const end = /silence_end: ([\d.e+-]+)/.exec(line)
-        if (begin) start = Number(begin[1])
-        if (end) silence.push({ start, end: Number(end[1]) })
-      },
+  // Decodes bounded pcm windows over the audio stream's own extent (no leading padding when
+  // audio starts late). Times stay on the container timeline like visual samples. A window
+  // with speech running into its edge ends early so the next window starts at that speech.
+  // FFmpeg 8+: https://ffmpeg.org/ffmpeg-resampler.html#Resampler-Options
+  async function* audio(path: string, durationMs: number) {
+    const { streams, format } = await container(path)
+    const stream = streams.find((entry) => entry.codec_type === 'audio')
+    if (!stream) return
+    const origin = seconds(format.start_time, 0)
+    const first = Math.max(0, seconds(stream.start_time, origin) - origin)
+    const end = Math.min(
+      durationMs / 1000,
+      first + seconds(stream.duration, Number.POSITIVE_INFINITY),
     )
-    // ponytail: whole-file PCM is 230 MB/hour before copies; use ffmpeg -ss/-t ASR windows if memory limits it.
-    const samples = new Float32Array(pcm.length / 4)
-    for (let i = 0; i < samples.length; i++) samples[i] = pcm.readFloatLE(i * 4)
-    const duration = samples.length / 16000
-    const spans: { start: number; end: number }[] = []
-    let cursor = 0
-    for (const gap of silence) {
-      if (gap.start > cursor)
-        spans.push({ start: cursor, end: Math.min(duration, gap.start + 0.15) })
-      cursor = Math.max(cursor, gap.end - 0.15)
-    }
-    if (cursor < duration) spans.push({ start: cursor, end: duration })
-    // Suppress residual padded silence, including all-silent clips.
-    return spans
-      .filter((span) => {
-        const first = Math.floor(span.start * 16000)
-        const last = Math.floor(span.end * 16000)
+    for (let at = first; at < end; ) {
+      const length = Math.min(AUDIO_WINDOW_S, end - at)
+      const silence: { start: number; end: number }[] = []
+      let start = 0
+      const pcm = await ffmpeg(
+        [
+          '-v',
+          'info',
+          '-ss',
+          String(at),
+          '-i',
+          path,
+          '-map',
+          '0:a:0',
+          '-vn',
+          '-ac',
+          '1',
+          '-ar',
+          '16000',
+          '-t',
+          String(length),
+          // timeline gaps inside the window stay silence instead of shifting later cues
+          '-af',
+          'aresample=16000:async=1:first_pts=0,silencedetect=noise=-50dB:d=0.5',
+          '-f',
+          'f32le',
+          'pipe:1',
+        ],
+        (line) => {
+          const begin = /silence_start: ([\d.e+-]+)/.exec(line)
+          const stop = /silence_end: ([\d.e+-]+)/.exec(line)
+          if (begin) start = Number(begin[1])
+          if (stop) silence.push({ start, end: Number(stop[1]) })
+        },
+      )
+      const samples = new Float32Array(pcm.length / 4)
+      for (let i = 0; i < samples.length; i++)
+        samples[i] = pcm.readFloatLE(i * 4)
+      const duration = samples.length / 16000
+      const spans: { start: number; end: number }[] = []
+      let cursor = 0
+      for (const gap of silence) {
+        if (gap.start > cursor)
+          spans.push({
+            start: cursor,
+            end: Math.min(duration, gap.start + 0.15),
+          })
+        cursor = Math.max(cursor, gap.end - 0.15)
+      }
+      if (cursor < duration) spans.push({ start: cursor, end: duration })
+      const last = spans.at(-1)
+      const carry =
+        at + length < end && last && last.start > 0 && last.end >= duration
+      if (carry) spans.pop()
+      for (const span of spans) {
+        const from = Math.floor(span.start * 16000)
+        const to = Math.floor(span.end * 16000)
         let energy = 0
-        for (const value of samples.subarray(first, last)) energy += value ** 2
-        return energy / (last - first) > 1e-5
-      })
-      .map((span) => ({
-        startMs: Math.round(span.start * 1000),
-        samples: samples.subarray(
-          Math.floor(span.start * 16000),
-          Math.floor(span.end * 16000),
-        ),
-      }))
+        for (let i = from; i < to; i++) energy += (samples[i] as number) ** 2
+        // Suppress residual padded silence, including all-silent clips.
+        if (energy / (to - from) > 1e-5)
+          yield {
+            startMs: Math.round((at + span.start) * 1000),
+            samples: samples.subarray(from, to),
+          }
+      }
+      at += carry ? (last as { start: number }).start : length
+    }
   }
 
   return { probe, image, ocrFrame, poster, sprite, analyze, extract, audio }

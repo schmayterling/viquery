@@ -197,13 +197,14 @@ export function createComputeApi(init: ComputeInit): ComputeApi {
       const segments: SpeechResult['segments'] = []
       const metadata = await media.probe(p.path)
       if (!metadata.hasAudio) return { generation: GENERATION.speech, segments }
-      const spans = await media.audio(p.path, metadata.durationMs as number)
-      if (!spans.length) return { generation: GENERATION.speech, segments }
-      speechEncoder ??= loadSpeechEncoder(init.modelsDir)
-      sentenceEncoder ??= loadSentenceEncoder(init.modelsDir)
-      const transcribe = await speechEncoder
-      const sentence = await sentenceEncoder
-      for (const span of spans) {
+      for await (const span of media.audio(
+        p.path,
+        metadata.durationMs as number,
+      )) {
+        speechEncoder ??= loadSpeechEncoder(init.modelsDir)
+        sentenceEncoder ??= loadSentenceEncoder(init.modelsDir)
+        const transcribe = await speechEncoder
+        const sentence = await sentenceEncoder
         for (const segment of await transcribe(span.samples)) {
           segments.push({
             ...segment,
