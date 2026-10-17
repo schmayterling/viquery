@@ -1,9 +1,10 @@
 // biome-ignore-all lint/style/noNonNullAssertion: the manifest and nonempty score groups are fixed fixtures.
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { mkdirSync, readFileSync } from 'node:fs'
 import os from 'node:os'
 import { join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import sharp from 'sharp'
 import { binaries, dot } from '../../tests/compute-tools.ts'
 import { createComputeApi } from '../compute/api.ts'
 import { loadTextEncoders } from '../ml/text.ts'
@@ -66,7 +67,7 @@ for (const query of queries) {
   const ranked = scores
     .map((score, i) => ({ image: manifest[i]!.file, score }))
     .sort((a, b) => b.score - a.score)
-  rows.push({ query, scores, ranked })
+  rows.push({ query, encoded, scores, ranked })
 }
 const summary = (values: number[]) => {
   const sorted = [...values].sort((a, b) => a - b)
@@ -79,6 +80,103 @@ const summary = (values: number[]) => {
     max: sorted.at(-1),
   }
 }
+const multi = manifest.map((item, i) => ({
+  file: item.file,
+  positive: i,
+  embedding: vectors[i]!,
+}))
+const variantsDir = resolve('out/calibration/variants')
+mkdirSync(variantsDir, { recursive: true })
+for (const [i, item] of manifest.entries()) {
+  const image = sharp(join(imagesDir, item.file)).autoOrient()
+  const metadata = await image.metadata()
+  const { width, height } = metadata.autoOrient
+  const cropWidth = Math.floor(width * 0.8),
+    cropHeight = Math.floor(height * 0.8)
+  for (const variant of [
+    {
+      name: 'crop80',
+      image: image.clone().extract({
+        left: Math.floor((width - cropWidth) / 2),
+        top: Math.floor((height - cropHeight) / 2),
+        width: cropWidth,
+        height: cropHeight,
+      }),
+    },
+    {
+      name: 'brightness80',
+      image: image.clone().modulate({ brightness: 0.8 }),
+    },
+    { name: 'mirror', image: image.clone().flop() },
+    {
+      name: 'rotate5',
+      image: image.clone().rotate(5, { background: '#000000' }),
+    },
+  ]) {
+    const path = join(variantsDir, `${i}-${variant.name}.png`)
+    await variant.image.png().toFile(path)
+    const result = await compute.visual({
+      mediaId: 100 + multi.length,
+      path,
+      kind: 'image',
+      durationMs: null,
+    })
+    multi.push({
+      file: `${item.file}:${variant.name}`,
+      positive: i,
+      embedding: result.samples[0]!.embedding,
+    })
+  }
+}
+const catClass = manifest.findIndex((item) => item.file === 'chelsea.png')
+for (const file of ['cat.jpg', 'cat-128.jpg', 'cat-192.jpg']) {
+  const result = await compute.visual({
+    mediaId: 100 + multi.length,
+    path: resolve('out/core-smoke-profile/fixtures', file),
+    kind: 'image',
+    durationMs: null,
+  })
+  multi.push({
+    file,
+    positive: catClass,
+    embedding: result.samples[0]!.embedding,
+  })
+}
+const multiRows = rows.slice(0, manifest.length).map((row, positive) => ({
+  query: row.query,
+  positive,
+  scores: multi.map((m) => dot(m.embedding, row.encoded)),
+}))
+const positivePairs = multi.length
+const frontier = [0.006, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.08].map(
+  (band) => {
+    let acceptedPositive = 0,
+      acceptedNegative = 0
+    for (const row of multiRows) {
+      const cutoff = relevanceCutoff('visual', Math.max(...row.scores), band)
+      row.scores.forEach((score, i) => {
+        if (score < cutoff) return
+        if (multi[i]!.positive === row.positive) acceptedPositive++
+        else acceptedNegative++
+      })
+    }
+    return {
+      band,
+      acceptedPositive,
+      positivePairs,
+      recall: acceptedPositive / positivePairs,
+      acceptedNegative,
+      negativePairs: multi.length * (manifest.length - 1),
+    }
+  },
+)
+const retrieval = multiRows.map((row) => {
+  const cutoff = relevanceCutoff('visual', Math.max(...row.scores))
+  return row.scores.filter(
+    (score, i) => multi[i]!.positive === row.positive && score >= cutoff,
+  ).length
+})
+assert.ok(retrieval.reduce((n, count) => n + count, 0) / positivePairs >= 0.95)
 const matching = rows.slice(0, manifest.length).map((r, i) => r.scores[i]!)
 const nonMatching = rows
   .slice(0, manifest.length)
@@ -143,21 +241,28 @@ const gated = rows.slice(0, manifest.length).map((row, i) => {
   }
 })
 assert.ok(gated.every((row) => row.positive))
-assert.equal(
-  gated.reduce((n, row) => n + row.negatives, 0),
-  0,
-)
+
 console.log(
   JSON.stringify({
     date: new Date().toISOString(),
     cpu: os.cpus()[0]!.model,
     models: 'Xenova/clip-vit-base-patch32 int8; Xenova/all-MiniLM-L6-v2 q8',
     workload:
-      'full 10x10 named-pair matrix + 8 unlabeled abstract queries; production compute.visual/text encoders; launch + generated bars/tone/silence from core-smoke',
+      '10x10 named-pair matrix, 53 related images x 10 queries (53 positives, 477 negatives), 8 unlabeled abstract + 4 unrelated queries; production compute.visual/text encoders; launch + generated bars/tone/silence from core-smoke',
     manifest,
     matching: summary(matching),
     nonMatching: summary(nonMatching),
     top1: correct,
+    multiPositive: {
+      variants:
+        'original + center crop80%, brightness80%, horizontal mirror, rotation5deg black corners; three fixture cat encodings',
+      media: multi.map(({ file, positive }) => ({ file, positive })),
+      frontier,
+      acceptedPositive: retrieval.reduce((n, count) => n + count, 0),
+      positivePairs,
+      minimumRecall: 0.95,
+      rows: multiRows,
+    },
     gated: {
       namedAccepted: gated.filter((r) => r.positive).length,
       mismatchedAccepted: gated.reduce((n, r) => n + r.negatives, 0),

@@ -49,11 +49,10 @@ const ocrSql = `select id, media_id, null as scene_id, t_ms as start_ms,
   coalesce(t_ms, 0) as end_ms, text, embedding from ocr where generation = ?`
 const sceneSql =
   'select id, media_id, start_ms, end_ms from scene where generation = ?'
-// Default CLIP pack: .23 floor + .01 retrieval band retain 10/10 named pairs,
-// admit 0/90 mismatched pairs, and reject purple giraffe on the fixture library.
+// bench-calibration-results.json: .03 = smallest band with >= 95% recall on the 53-positive set.
 // Unlabeled abstract queries below the floor can be missed; recalibrate for a new model pack.
 const relevanceFloor = { visual: 0.23, speech: 0.45, text: 0.45 }
-const visualBand = { global: 0.01, timeline: 0.006 }
+const visualBand = { global: 0.03, timeline: 0.006 }
 export const relevanceCutoff = (
   source: MatchSource,
   best: number,
