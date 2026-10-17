@@ -273,7 +273,7 @@ const chrome = () => {
   const dark = nativeTheme.shouldUseDarkColors
   return {
     height: 40,
-    color: dark ? '#202020' : '#f5f5f5',
+    color: dark ? '#1e1e1e' : '#f5f5f5',
     symbolColor: dark ? '#ececec' : '#33393a',
   }
 }
@@ -307,12 +307,13 @@ function createWindow(): void {
     titleBarStyle: mac ? 'hiddenInset' : 'hidden',
     trafficLightPosition: { x: 12, y: 13 },
     ...(!mac && { titleBarOverlay: chrome() }),
-    backgroundColor: nativeTheme.shouldUseDarkColors ? '#202020' : '#f5f5f5',
+    backgroundColor: nativeTheme.shouldUseDarkColors ? '#171717' : '#ffffff',
     webPreferences: {
       preload: join(import.meta.dirname, '../preload/index.cjs'),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,
+      spellcheck: false,
     },
   })
   win.once('ready-to-show', () => win.show())
