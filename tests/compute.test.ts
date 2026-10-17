@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import { promisify } from 'node:util'
 import sharp from 'sharp'
 import { createComputeApi } from '../src/compute/api.ts'
+import { mediaTools } from '../src/compute/media.ts'
 import { loadTextEncoders } from '../src/ml/text.ts'
 import { dataPaths } from '../src/shared/paths.ts'
 import { binaries, dot, fixture, modelsDir } from './compute-tools.ts'
@@ -234,4 +236,19 @@ test('compute indexes fixture metadata, previews, visual moments and speech offl
     assert.equal(segment.embedding.length, 384)
     assert.ok(Math.abs(dot(segment.embedding, segment.embedding) - 1) < 1e-5)
   }
+})
+
+test('media tools never follow a concat script disguised as a video', async (t) => {
+  const folder = await mkdtemp(join(tmpdir(), 'viquery-concat-'))
+  t.after(() => rm(folder, { recursive: true, force: true }))
+  // the segment link sits inside the folder but points at a file outside it
+  await symlink(join(fixture, 'launch.mp4'), join(folder, 'segment.mp4'))
+  const script = join(folder, 'holiday.mp4')
+  await writeFile(script, "ffconcat version 1.0\nfile 'segment.mp4'\n")
+  const media = mediaTools(binaries())
+  await assert.rejects(media.probe(script), /not on whitelist/)
+  await assert.rejects(
+    media.poster(script, join(folder, 'poster.webp')),
+    /not on whitelist/,
+  )
 })

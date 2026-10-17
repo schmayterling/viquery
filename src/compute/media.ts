@@ -57,6 +57,17 @@ async function run(
   return Buffer.concat(output)
 }
 
+// every input is one local media file. playlists (hls, dash), concat scripts and other
+// reference formats would open files outside the library folders, so only real containers
+// and image demuxers may be used, and only the file protocol.
+// https://ffmpeg.org/ffmpeg-formats.html#Format-Options (format_whitelist, protocol_whitelist)
+const INPUT = [
+  '-protocol_whitelist',
+  'file',
+  '-format_whitelist',
+  'mov,matroska,avi,mpegts,mpeg,mpegvideo,ogg,image2,jpeg_pipe,png_pipe,webp_pipe,gif,gif_pipe,bmp_pipe,tiff_pipe',
+]
+
 const scale = (edge: number) =>
   `scale=w='min(${edge},iw)':h='min(${edge},ih)':force_original_aspect_ratio=decrease`
 
@@ -194,8 +205,7 @@ export function mediaTools(binaries: Binaries) {
         String(THREADS.compute),
         '-filter_threads',
         String(THREADS.compute),
-        '-protocol_whitelist',
-        'file,pipe',
+        ...INPUT,
         ...args.slice(0, -1),
         '-threads',
         String(THREADS.compute),
@@ -209,8 +219,7 @@ export function mediaTools(binaries: Binaries) {
         await run(binaries.ffprobe, [
           '-v',
           'error',
-          '-protocol_whitelist',
-          'file,pipe',
+          ...INPUT,
           '-show_streams',
           '-show_format',
           '-of',
