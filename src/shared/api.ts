@@ -93,7 +93,7 @@ export type SearchResult = {
 }
 
 export type IndexPhase =
-  | { phase: 'idle'; items: number }
+  | { phase: 'idle'; items: number; failed: number } // failed: jobs out of retries
   | { phase: 'scanning'; found: number }
   | {
       phase: 'thumbnails' | 'images' | 'videos' | 'speech'
@@ -101,6 +101,7 @@ export type IndexPhase =
       total: number
       etaMs: number | null
       paused: boolean
+      failed: number
     }
 
 export type ViqueryApi = {
