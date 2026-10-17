@@ -150,7 +150,7 @@ see research/models.md for exact ids, files, sha256, preprocessing. default: ope
 
 ## packaging (later slice)
 
-electron-builder; models and lgpl ffmpeg/ffprobe builds as extraResources; native deps (sharp, onnxruntime-node) asarUnpack. dev resolves ffmpeg from `resources/bin` else PATH.
+electron-builder; models and lgpl ffmpeg/ffprobe builds as extraResources; native deps (sharp, onnxruntime-node) asarUnpack. dev resolves ffmpeg from `resources/bin` else PATH. cpu-only release builds set `ONNXRUNTIME_NODE_INSTALL=skip` so onnxruntime-node's postinstall skips cuda downloads on linux (js/node/script/install.js @ v1.30.0); a project `.npmrc` key works but npm 11 warns on every command.
 
 ## verification
 

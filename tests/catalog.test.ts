@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { test } from 'node:test'
-import { setImmediate } from 'node:timers/promises'
+import { setTimeout } from 'node:timers/promises'
 import { Catalog } from '../src/catalog/core.ts'
 import type { Filter } from '../src/shared/api.ts'
 import { dataPaths } from '../src/shared/paths.ts'
@@ -62,7 +62,8 @@ test('catalog fixture: content identity, aliases, phased jobs, retries, resume a
     async thumb({ kind }) {
       calls.push('thumb')
       maxThumbs = Math.max(maxThumbs, ++thumbs)
-      await setImmediate()
+      // hold long enough for the sibling job's stat + probe to land, so the cap is what limits overlap
+      await setTimeout(20)
       thumbs--
       return {
         sprite: kind === 'video' ? { columns: 5, rows: 1, frames: 5 } : null,
