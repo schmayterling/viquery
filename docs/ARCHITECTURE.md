@@ -32,9 +32,9 @@ the shared contracts are code, not prose: `src/shared/api.ts` (renderer api + vq
 
 ## identity and jobs
 
-- media identity = sha256 of full file content. a media row can have many file aliases (paths); renames/moves keep vectors.
+- media identity = sha256 of full file content. files over 64 MiB are first keyed by size + head/middle/tail 4 MiB windows (a full read of a 96 GB file stalled scanning); a sampled match with another present, unchanged alias is confirmed by full-hashing both, and differing content is keyed by its full sha256. a media row can have many file aliases (paths); renames/moves keep vectors.
 - media rows without aliases remain stored but hidden from library/search; garbage collection is a separate explicit slice.
-- scan: stat-gated. unchanged (path, size, mtime) skips hashing. changed or new file -> hash -> upsert media -> alias.
+- scan: stat-gated. unchanged (path, size, mtime) skips hashing. changed or new file -> hash -> upsert media -> alias. a file belongs to one folder, the outermost library folder containing it: adding a nested folder resolves to its container, adding a container absorbs nested folders. unreadable subfolders are skipped (their aliases kept); a root that is missing, unreadable, newly empty, or replaced by another volume with none of its known files is offline, never a mass deletion.
 - stages per media, each a row in `job`: `thumb` (probe + thumbnail + video sprite) -> `visual` (scenes + frame embeddings) -> `ocr` (visible text) -> `speech` (videos with audio). scheduling order matches the ui phases: all thumbs first, then images visual, then videos visual, then text, then speech. ocr requires the current visual job to finish; replacing visual rows invalidates that media's ocr rows and job.
 - jobs are idempotent: results are written in one transaction that replaces that media's rows for that stage+generation. on startup `running` resets to `pending`. failures record error + attempts; three attempts then `failed` (visible; retried only when one of its files changes or its folder is added again, never by routine reconciliation).
 - generations (`GENERATION` in protocol.ts) version model + preprocessing + segmentation. search loads only current-generation rows; catalog re-enqueues stale ones.
