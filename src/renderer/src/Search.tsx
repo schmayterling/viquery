@@ -111,6 +111,7 @@ export function Results(props: {
       .filter((i): i is MediaItem => !!i)
     return {
       ids: Uint32Array.from(items, (i) => i.id),
+      ready: new Uint8Array(items.length).fill(1), // search hits are indexed, so thumbs exist
       aspect: Float32Array.from(items, (i) => i.width / i.height),
       kind: new Uint8Array(items.length),
       takenAt: Float64Array.from(items, (i) => i.takenAt),

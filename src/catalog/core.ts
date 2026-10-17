@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import { createReadStream, existsSync, realpathSync } from 'node:fs'
-import { opendir, realpath, stat } from 'node:fs/promises'
+import { open, opendir, realpath, stat } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 import type { SQLInputValue, StatementSync } from 'node:sqlite'
 import type {
@@ -92,6 +92,36 @@ const phases: Work[] = [
   { stage: 'visual', kind: 1, phase: 'videos', limit: 1 },
   { stage: 'speech', kind: 1, phase: 'speech', limit: 1 },
 ]
+
+const SAMPLED_ABOVE = 64 * 1024 * 1024
+const WINDOW = 4 * 1024 * 1024
+
+// ponytail: files over 64 MiB are identified by size + head/middle/tail 4 MiB windows, not a full read;
+// a full sha256 of a 96 GB remux stalled the scan for minutes. ceiling: two same-size files differing
+// only outside those windows share one identity. upgrade: full hash in a background pass after thumbnails.
+async function contentHash(path: string, size: number): Promise<Buffer> {
+  const hash = createHash('sha256')
+  if (size <= SAMPLED_ABOVE) {
+    for await (const chunk of createReadStream(path)) hash.update(chunk)
+    return hash.digest()
+  }
+  hash.update(`sampled:${size}:`)
+  const file = await open(path)
+  try {
+    const buffer = Buffer.allocUnsafe(WINDOW)
+    for (const position of [
+      0,
+      Math.floor((size - WINDOW) / 2),
+      size - WINDOW,
+    ]) {
+      const { bytesRead } = await file.read(buffer, 0, WINDOW, position)
+      hash.update(buffer.subarray(0, bytesRead))
+    }
+  } finally {
+    await file.close()
+  }
+  return hash.digest()
+}
 
 export class Catalog extends EventEmitter<{
   index: [IndexPhase]
@@ -245,13 +275,15 @@ export class Catalog extends EventEmitter<{
       where.push('m.taken_at<?')
       params.push(filter.takenTo)
     }
-    const rows = this.all<MediaRow>(
-      `select m.* from media m where ${where.join(' and ')}
+    const rows = this.all<MediaRow & { ready: number }>(
+      `select m.*,exists(select 1 from job j where j.media_id=m.id and j.stage='thumb' and j.state='done') as ready
+      from media m where ${where.join(' and ')}
       order by m.taken_at desc,m.id desc`,
       ...params,
     )
     return {
       ids: Uint32Array.from(rows, (row) => row.id),
+      ready: Uint8Array.from(rows, (row) => row.ready),
       aspect: Float32Array.from(rows, (row) => row.width / row.height),
       kind: Uint8Array.from(rows, (row) => row.kind),
       takenAt: Float64Array.from(rows, (row) => row.taken_at),
@@ -379,8 +411,7 @@ export class Catalog extends EventEmitter<{
         const old = byPath.get(path)
         if (old?.size === before.size && old.mtime_ms === before.mtimeMs)
           continue
-        const hash = createHash('sha256')
-        for await (const chunk of createReadStream(path)) hash.update(chunk)
+        const digest = await contentHash(path, before.size)
         const after = await stat(path)
         if (!sameFile(before, after)) continue
         const mediaId = transaction(this.db, () => {
@@ -388,7 +419,7 @@ export class Catalog extends EventEmitter<{
             `insert into media
             (sha256,kind,width,height,duration_ms,has_audio,taken_at,added_at,bytes)
             values (?,?,1,1,null,0,?,?,?) on conflict(sha256) do update set sha256=excluded.sha256 returning id`,
-            hash.digest(),
+            digest,
             videos.has(extname(path).toLowerCase()) ? 1 : 0,
             before.mtimeMs,
             Date.now(),
@@ -411,6 +442,7 @@ export class Catalog extends EventEmitter<{
           return id
         })
         this.notify(old ? [old.media_id, mediaId] : [mediaId])
+        this.pump() // thumbnails start while the scan continues
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
       }
