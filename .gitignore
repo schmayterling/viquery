@@ -5,6 +5,6 @@ release/
 .worktrees/
 .DS_Store
 *.log
-/models/
+/models
 /resources/models/
 /research/raw/
