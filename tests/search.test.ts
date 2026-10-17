@@ -133,7 +133,7 @@ test('video rpc returns ordered heat, gated markers and speech-only scenes using
   for (const [id, score] of [
     [401, 0.31],
     [402, 0.338],
-    [403, 0.19],
+    [403, 0.3], // inside the global band, outside the timeline band
   ])
     update.run(bytes(vector(score!, 512)), id!)
   // The later inserted sample is the winner, not the first sample or scene midpoint.
@@ -177,7 +177,10 @@ test('video rpc returns ordered heat, gated markers and speech-only scenes using
     ports: [utilityPort(channel.port2)],
   })
   const client = connect(rpcPort(channel.port1))
-  await client.call('search', { query: 'rocket', filter: all })
+  const global = await client.call<SearchResult>('search', {
+    query: 'rocket',
+    filter: { ...all, media: 'video' },
+  })
   const video = (query: string, id = 4) =>
     client.call<SceneMatch[]>('searchVideo', { id, query })
   const heat = await video('rocket')
@@ -193,6 +196,13 @@ test('video rpc returns ordered heat, gated markers and speech-only scenes using
     [true, true, false, false, false],
   )
   assert.equal(heat[0]!.seekMs, 700)
+  assert.deepEqual(
+    global.videos
+      .find((v) => v.mediaId === 4)!
+      .moments.map((m) => [m.startMs, m.endMs]),
+    [[0, 3500]],
+    'global moment spans only scenes the timeline marks',
+  )
   const spoken = await video('ask what you can do for your country')
   assert.deepEqual(
     spoken.map((s) => s.match),

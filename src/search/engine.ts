@@ -731,7 +731,20 @@ export class SearchEngine {
     return { query, images, videos, pending, tookMs: performance.now() - start }
   }
 
-  private moments(hits: Ranked[]): Moment[] {
+  private moments(all: Ranked[]): Moment[] {
+    // the wide global band decides whether the video is a result; displayed spans keep only
+    // scenes the timeline band (searchVideo) also marks, so card and player agree.
+    const cutoff = relevanceCutoff(
+      'visual',
+      Math.max(...all.map((h) => h.sample?.score ?? -Infinity)),
+      visualBand.timeline,
+    )
+    const hits = all.filter(
+      (h) =>
+        h.sources.size > 1 ||
+        !h.sources.has('visual') ||
+        h.sample!.score >= cutoff,
+    )
     const positions = new Map(
       this.mediaScenes
         .get(hits[0]!.target.mediaId)!
