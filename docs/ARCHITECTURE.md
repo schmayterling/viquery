@@ -146,7 +146,7 @@ react 19, design per research/design.md (search field centered in the topbar). c
 
 ## models (default pack, all permissive)
 
-see research/models.md for exact ids, files, sha256, preprocessing. default: openclip vit-b/32 laion2b (mit) int8 image + text; whisper base.en q8 (mit); all-minilm-l6-v2 (apache-2.0). runtime: @huggingface/transformers on onnxruntime-node (cpu; coreml/dml/cuda opportunistic), with `env.allowRemoteModels = false`. multilingual pack (whisper base + multilingual-e5-small) is a later opt-in.
+see research/models.md for exact ids, files, sha256, preprocessing. default: openai clip vit-b/32 via `Xenova/clip-vit-base-patch32` (mit; measured ~20ms/image int8, 2 threads, m2) image + text; whisper base.en q8 (mit); all-minilm-l6-v2 (apache-2.0). runtime: @huggingface/transformers on onnxruntime-node (cpu; coreml/dml/cuda opportunistic), with `env.allowRemoteModels = false`. multilingual pack (whisper base + multilingual-e5-small) is a later opt-in.
 
 ## packaging (later slice)
 
