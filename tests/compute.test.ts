@@ -222,6 +222,35 @@ test('compute indexes fixture metadata, previews, visual moments and speech offl
   )
   assert.ok(Math.abs((staticVisual.samples.at(-1)?.tMs ?? NaN) - 20_750) <= 250)
 
+  // one frame every 20s: windows without a frame sample the frame held across them
+  const sparseVideo = join(dataDir, 'sparse.mp4')
+  await promisify(execFile)(tools.ffmpeg, [
+    '-v',
+    'error',
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    'testsrc2=size=96x64:rate=1/20',
+    '-t',
+    '40',
+    '-c:v',
+    'libx264',
+    sparseVideo,
+  ])
+  const sparse = await compute.visual({
+    ...launch,
+    mediaId: 9,
+    path: sparseVideo,
+    durationMs: 40_000,
+  })
+  for (const sample of sparse.samples) {
+    const scene = sparse.scenes[sample.scene]
+    const ms = sample.tMs as number
+    assert.ok(scene && ms >= scene.startMs && ms < scene.endMs)
+    assert.ok(existsSync(paths.frame(9, ms)))
+  }
+
   const speech = await compute.speech(launch)
   assert.match(
     speech.segments

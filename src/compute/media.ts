@@ -171,19 +171,34 @@ function windows(cuts: { ms: number; score: number }[], durationMs: number) {
   return scenes
 }
 
-export function sampleFrames({ frames, scenes }: Analysis) {
+export function sampleFrames({
+  frames,
+  scenes,
+}: Analysis): (Frame & { scene: number; heldAt?: number })[] {
   if (!frames.length) throw new Error('video decoded no frames')
+  // index of the first frame at or after ms
+  const seek = (ms: number) => {
+    let low = 0
+    let high = frames.length
+    while (low < high) {
+      const mid = (low + high) >>> 1
+      if ((frames[mid] as Frame).ms < ms) low = mid + 1
+      else high = mid
+    }
+    return low
+  }
   return scenes.flatMap((scene, index) => {
+    const first = seek(scene.startMs)
+    if ((frames[first]?.ms ?? Number.POSITIVE_INFINITY) >= scene.endMs) {
+      // no frame starts in this window (long frame hold): the held frame is what plays
+      // here, so sample it once at the window start.
+      const held = frames[Math.max(0, first - 1)] as Frame
+      return [{ scene: index, ...held, heldAt: scene.startMs }]
+    }
     const length = scene.endMs - scene.startMs
     return (length <= 2000 ? [0.5] : [0.2, 0.5, 0.8]).map((fraction) => {
       const target = scene.startMs + length * fraction
-      let low = 0
-      let high = frames.length
-      while (low < high) {
-        const mid = (low + high) >>> 1
-        if ((frames[mid] as Frame).ms < target) low = mid + 1
-        else high = mid
-      }
+      const low = seek(target)
       const before = frames[Math.max(0, low - 1)] as Frame
       const after = frames[Math.min(low, frames.length - 1)] as Frame
       // Keep cut-adjacent samples in their own shot whenever a frame exists there.

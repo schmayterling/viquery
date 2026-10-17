@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises'
+import { copyFile, mkdir } from 'node:fs/promises'
 import { dirname, isAbsolute } from 'node:path'
 import sharp from 'sharp'
 import {
@@ -14,6 +14,7 @@ import {
   type OcrResult,
   type SpeechResult,
   type UtilityMessage,
+  type VisualResult,
 } from '../shared/protocol.ts'
 import { mediaTools, sampleFrames } from './media.ts'
 
@@ -113,16 +114,25 @@ export function createComputeApi(init: ComputeInit): ComputeApi {
         const { data, info } = await media.image(frame.path)
         vectors.set(pts, await encode(data, info.width, info.height))
       }
+      const results: VisualResult['samples'] = []
+      for (const sample of samples) {
+        const frame = frames.get(sample.pts)
+        const embedding = vectors.get(sample.pts)
+        if (!frame || !embedding)
+          throw new Error('video changed between decode passes')
+        // a held frame also gets a frame file at the window start it represents
+        if (sample.heldAt !== undefined)
+          await copyFile(frame.path, paths.frame(p.mediaId, sample.heldAt))
+        results.push({
+          scene: sample.scene,
+          tMs: sample.heldAt ?? frame.ms,
+          embedding,
+        })
+      }
       return {
         generation: GENERATION.visual,
         scenes: analysis.scenes,
-        samples: samples.map((sample) => {
-          const frame = frames.get(sample.pts)
-          const embedding = vectors.get(sample.pts)
-          if (!frame || !embedding)
-            throw new Error('video changed between decode passes')
-          return { scene: sample.scene, tMs: frame.ms, embedding }
-        }),
+        samples: results,
       }
     },
     async ocr(p) {
