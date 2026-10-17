@@ -194,16 +194,16 @@ export function App() {
   }
 
   const onQuery = (q: string) => {
-    // typed tokens become chips on space (design §6.2): "video", "photos", "2024"
+    // Explicit type tokens preserve natural phrases such as "a video game console".
     if (q.endsWith(' ')) {
       const head = q.trimEnd()
       const k = head.lastIndexOf(' ')
       const word = head.slice(k + 1).toLowerCase()
       const rest = head.slice(0, k + 1)
-      if (/^(videos?|clips?)$/.test(word)) {
+      if (/^type:videos?$/.test(word)) {
         setPlace({ ...place, media: 'video' })
         q = rest
-      } else if (/^(images?|photos?|pictures?)$/.test(word)) {
+      } else if (/^type:images?$/.test(word)) {
         setPlace({ ...place, media: 'image' })
         q = rest
       } else if (/^(19|20)\d\d$/.test(word)) {
