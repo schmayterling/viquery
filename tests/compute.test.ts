@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict'
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { existsSync } from 'node:fs'
-import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
+import { setTimeout } from 'node:timers/promises'
 import { promisify } from 'node:util'
 import sharp from 'sharp'
 import { createComputeApi } from '../src/compute/api.ts'
@@ -296,6 +298,81 @@ test('compute indexes fixture metadata, previews, visual moments and speech offl
     assert.ok(segment.endMs > segment.startMs)
     assert.equal(segment.embedding.length, 384)
     assert.ok(Math.abs(dot(segment.embedding, segment.embedding) - 1) < 1e-5)
+  }
+})
+
+test('compute shutdown kills decoding children and startup removes abandoned decodes', {
+  timeout: 15_000,
+}, async (t) => {
+  const folder = await mkdtemp(join(tmpdir(), 'viquery-shutdown-'))
+  t.after(() => rm(folder, { recursive: true, force: true }))
+  const tools = binaries()
+  const init = {
+    type: 'init',
+    dataDir: folder,
+    modelsDir,
+    ...tools,
+  }
+  const frames = dataPaths(folder).frames(1)
+  const stale = join(frames, '.decode-abandoned')
+  const valid = join(frames, '0.webp')
+  for (const mode of process.platform === 'win32'
+    ? ['exit']
+    : ['SIGTERM', 'exit']) {
+    await mkdir(stale, { recursive: true })
+    await writeFile(join(stale, '000001.png'), 'partial')
+    await writeFile(valid, 'keep')
+    const worker = spawn(
+      process.execPath,
+      [
+        '--experimental-strip-types',
+        '--input-type=module',
+        '-e',
+        `
+        import childProcess from 'node:child_process'
+        import { EventEmitter } from 'node:events'
+        import { syncBuiltinESMExports } from 'node:module'
+        const spawn = childProcess.spawn
+        childProcess.spawn = (binary, args, options) => {
+          const child = spawn(binary, ['-re', ...args], options)
+          child.once('spawn', () => process.send(child.pid))
+          return child
+        }
+        syncBuiltinESMExports()
+        process.parentPort = new EventEmitter()
+        await import(${JSON.stringify(new URL('../src/compute/index.ts', import.meta.url).href)})
+        process.parentPort.emit('message', { data: ${JSON.stringify(init)} })
+        process.on('message', () => process.exit(0))
+        const { mediaTools } = await import(${JSON.stringify(new URL('../src/compute/media.ts', import.meta.url).href)})
+        void mediaTools(${JSON.stringify(tools)})
+          .extract(${JSON.stringify(join(fixture, 'launch.mp4'))}, [0], ${JSON.stringify(frames)})
+          .catch(console.error)
+        `,
+      ],
+      { stdio: ['ignore', 'inherit', 'inherit', 'ipc'] },
+    )
+    t.after(() => worker.kill('SIGKILL'))
+    const exited = once(worker, 'exit')
+    const [pid] = (await once(worker, 'message')) as [number]
+    const alive = () => {
+      try {
+        process.kill(pid, 0)
+        return true
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false
+        throw error
+      }
+    }
+    t.after(() => {
+      if (alive()) process.kill(pid, 'SIGKILL')
+    })
+    if (mode === 'SIGTERM') worker.kill('SIGTERM')
+    else worker.send('exit')
+    await exited
+    for (let i = 0; i < 100 && alive(); i++) await setTimeout(10)
+    assert.equal(alive(), false, `ffmpeg survived compute ${mode}`)
+    assert.equal(existsSync(stale), false)
+    assert.equal(existsSync(valid), true)
   }
 })
 

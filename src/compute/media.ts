@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process'
+import { type ChildProcess, spawn } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, extname, join } from 'node:path'
 import { createInterface } from 'node:readline'
@@ -34,6 +34,14 @@ type Container = {
 
 sharp.concurrency(THREADS.sharp)
 
+const children = new Set<ChildProcess>()
+
+export function killMediaChildren() {
+  // Node 24 exit listeners must be synchronous; SIGKILL also stops a stuck decoder.
+  // https://nodejs.org/docs/latest-v24.x/api/process.html#event-exit
+  for (const child of children) child.kill('SIGKILL')
+}
+
 const AUDIO_WINDOW_S = 300 // 19 MB of 16 kHz f32 pcm per window
 
 function seconds(value: string | undefined, fallback: number): number {
@@ -47,6 +55,9 @@ async function run(
   onLine?: (line: string) => void,
 ) {
   const child = spawn(binary, args, { stdio: ['ignore', 'pipe', 'pipe'] })
+  children.add(child)
+  child.once('exit', () => children.delete(child))
+  child.once('error', () => children.delete(child))
   let errors = ''
   const lines = createInterface({ input: child.stderr })
   lines.on('line', (line) => {
