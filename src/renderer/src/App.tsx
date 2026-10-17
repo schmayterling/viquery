@@ -254,11 +254,11 @@ export function App() {
     if (narrow.matches) setSidebar(false)
   }
 
-  const openHit: OpenHit = (ids, index, mode, moments) => {
+  const openHit: OpenHit = (ids, index, mode, moments, selected) => {
     rememberQuery(query.trim())
     setViewer(
       moments
-        ? { mode, ids, index, moments, query: query.trim() }
+        ? { mode, ids, index, moments, selected, query: query.trim() }
         : { mode, ids, index },
     )
   }

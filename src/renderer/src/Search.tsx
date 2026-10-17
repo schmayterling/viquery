@@ -28,6 +28,7 @@ export type OpenHit = (
   index: number,
   mode: Open,
   moments?: Map<MediaId, Moment[]>,
+  selected?: Moment,
 ) => void
 
 type State =
@@ -135,7 +136,9 @@ export function Results(props: {
           videos={videos}
           folders={props.folders}
           focusRequest={props.focusRequest}
-          onOpen={(i, mode) => props.onOpen(videoIds, i, mode, moments)}
+          onOpen={(i, mode, selected) =>
+            props.onOpen(videoIds, i, mode, moments, selected)
+          }
         />
       )}
       {list.ids.length > 0 && (
@@ -160,7 +163,7 @@ function MomentList(props: {
   videos: VideoHit[]
   folders: Folder[]
   focusRequest: { id: MediaId } | null
-  onOpen: (index: number, mode: Open) => void
+  onOpen: (index: number, mode: Open, selected: Moment) => void
 }) {
   const { videos, focusRequest } = props
   const [active, setActive] = useState(0)
@@ -196,7 +199,7 @@ function MomentList(props: {
             onMove={(step) =>
               focus(Math.max(0, Math.min(videos.length - 1, i + step)))
             }
-            onOpen={(mode) => props.onOpen(i, mode)}
+            onOpen={(mode, selected) => props.onOpen(i, mode, selected)}
             say={say}
           />
         ))}
@@ -214,7 +217,7 @@ function MomentCard(props: {
   tabIndex: number
   onFocus: () => void
   onMove: (step: number) => void
-  onOpen: (mode: Open) => void
+  onOpen: (mode: Open, selected: Moment) => void
   say: (s: string) => void
 }) {
   const { hit } = props
@@ -239,8 +242,8 @@ function MomentCard(props: {
       show((cur + (e.key === ']' ? 1 : n - 1)) % n, true)
     else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft')
       props.onMove(e.key === 'ArrowRight' ? 1 : -1)
-    else if (e.key === 'Enter') props.onOpen('viewer')
-    else if (e.key === ' ') props.onOpen('quicklook')
+    else if (e.key === 'Enter') props.onOpen('viewer', m)
+    else if (e.key === ' ') props.onOpen('quicklook', m)
     else return
     e.preventDefault()
   }
@@ -274,7 +277,7 @@ function MomentCard(props: {
         className="frame"
         tabIndex={-1}
         aria-label={`Play from ${timecode(m.startMs)}`}
-        onClick={() => props.onOpen('viewer')}
+        onClick={() => props.onOpen('viewer', m)}
         onPointerEnter={() => ensureItems([hit.mediaId])}
         onPointerMove={scrub}
         onPointerLeave={(e) => e.currentTarget.removeAttribute('data-scrub')}
@@ -316,7 +319,7 @@ function MomentCard(props: {
             onPointerEnter={() => show(k, false)}
             onClick={() => {
               show(k, false)
-              props.onOpen('viewer')
+              props.onOpen('viewer', s)
             }}
           />
         ))}

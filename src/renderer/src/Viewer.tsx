@@ -25,6 +25,7 @@ export type ViewerState = {
   index: number
   moments?: Map<MediaId, Moment[]> | undefined
   query?: string | undefined
+  selected?: Moment | undefined
 }
 
 type Props = ViewerState & {
@@ -63,9 +64,10 @@ export function Viewer(props: Props) {
   const go = (step: number) => {
     const index = props.index + step
     if (index >= 0 && index < props.ids.length)
-      props.onChange({ ...props, index })
+      props.onChange({ ...props, index, selected: undefined })
   }
   const moments = props.query ? props.moments?.get(id) : undefined
+  const selected = props.selected ?? moments?.[0]
   const folder = props.folders.find((f) => f.id === item?.folderId)
   const [info, setInfo] = useInfo()
 
@@ -100,7 +102,7 @@ export function Viewer(props: Props) {
                 key={id}
                 item={item}
                 folder={folder}
-                start={moments?.[0]?.startMs ?? 0}
+                start={selected?.startMs ?? 0}
               />
             ) : (
               item && <OriginalImage key={id} item={item} folder={folder} />
@@ -178,10 +180,10 @@ export function Viewer(props: Props) {
               item={item}
               folder={folder}
               query={props.query ?? ''}
-              start={moments?.[0] ? Math.max(0, moments[0].startMs - 1000) : 0}
+              start={selected ? Math.max(0, selected.startMs - 1000) : 0}
               poster={
-                moments?.[0]
-                  ? mediaUrl.frame(id, moments[0].frameMs)
+                selected
+                  ? mediaUrl.frame(id, selected.frameMs)
                   : mediaUrl.thumb(id)
               }
             />

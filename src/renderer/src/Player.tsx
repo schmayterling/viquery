@@ -533,7 +533,7 @@ export function Player(props: {
                     e.stopPropagation()
                     if (find) setFind('')
                     else root.current?.focus()
-                  } else if (e.key === 'Enter' && pins[0]) {
+                  } else if (e.key === 'Enter' && !stale && pins[0]) {
                     e.preventDefault()
                     seek(pins[0].startMs)
                     root.current?.focus()
