@@ -208,7 +208,7 @@ no sparkles icon or "AI" glyph. semantic search is simply how the search box wor
 3. Smart filters: built-ins (Screenshots, Videos over 10 min) followed by saved searches. a saved search is a query plus its chips, stored with a name and pinned from the results header ("Save search"). names are lowercase as the user typed them.
 4. footer: indexing status (§6.6).
 
-**topbar:** sidebar toggle, then the search field, aligned to the content card's left edge plus 16px, `min(560px, …)` wide and 30px tall. at the right edge: tile size and add folder.
+**topbar:** sidebar toggle at left. the search field is centered in the window (not aligned to the content column), `min(560px, …)` wide and 30px tall; it stays centered when the sidebar collapses and shrinks before it would overlap the toggle or right controls. at the right edge: tile size and add folder. (user decision 2026-10-17.)
 
 **content header** (48px, inside the card): title (15/600) and a muted count on the left. on the right: segmented `All | Images | Videos` (with counts in search mode), the date chip, and sort. the same row and the same controls appear in library and search, so filters never jump.
 
