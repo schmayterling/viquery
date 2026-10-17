@@ -33,6 +33,7 @@ the shared contracts are code, not prose: `src/shared/api.ts` (renderer api + vq
 ## identity and jobs
 
 - media identity = sha256 of full file content. a media row can have many file aliases (paths); renames/moves keep vectors.
+- media rows without aliases remain stored but hidden from library/search; garbage collection is a separate explicit slice.
 - scan: stat-gated. unchanged (path, size, mtime) skips hashing. changed or new file -> hash -> upsert media -> alias.
 - stages per media, each a row in `job`: `thumb` (probe + thumbnail + video sprite) -> `visual` (scenes + frame embeddings) -> `speech` (videos with audio). scheduling order matches the ui phases: all thumbs first, then images visual, then videos visual, then speech.
 - jobs are idempotent: results are written in one transaction that replaces that media's rows for that stage+generation. on startup `running` resets to `pending`. failures record error + attempts; three attempts then `failed` (visible, not retried until rescan).
