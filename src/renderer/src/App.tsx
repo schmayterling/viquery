@@ -81,6 +81,10 @@ export function App() {
   const [selection, setSelection] = useState(new Set<MediaId>())
   const [viewer, setViewer] = useState<ViewerState | null>(null)
   const [focusRequest, setFocusRequest] = useState<{ id: MediaId } | null>(null)
+  // one-shot: children act on it in this commit, then it clears so a later list change can't steal focus
+  useEffect(() => {
+    if (focusRequest) setFocusRequest(null)
+  }, [focusRequest])
   const inputRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
 

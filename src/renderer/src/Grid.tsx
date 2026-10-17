@@ -66,7 +66,7 @@ export function Grid(props: Props) {
   const [margin, setMargin] = useState(0)
   const [active, setActive] = useState(0)
   const anchor = useRef(0)
-  const pendingFocus = useRef(false)
+  const focusToken = useRef(0)
   useItemsVersion()
 
   useLayoutEffect(() => {
@@ -149,31 +149,33 @@ export function Grid(props: Props) {
     [geo, margin, scrollRef, props.sticky],
   )
 
+  // focus lands once the target row is mounted; a far jump needs a scroll-driven render first
   const focusTile = useCallback(
     (i: number) => {
       setActive(i)
       reveal(i)
-      pendingFocus.current = true
+      const token = ++focusToken.current
+      let frames = 0
+      const attempt = () => {
+        if (token !== focusToken.current) return
+        const el = gridRef.current?.querySelector<HTMLElement>(
+          `[data-index="${i}"]`,
+        )
+        if (el) el.focus({ preventScroll: true })
+        else if (frames++ < 30) requestAnimationFrame(attempt)
+      }
+      attempt()
     },
     [reveal],
   )
-  // focus lands once the target row is mounted (it may need a scroll-driven render first)
-  useEffect(() => {
-    if (!pendingFocus.current) return
-    const el = gridRef.current?.querySelector<HTMLElement>(
-      `[data-index="${current}"]`,
-    )
-    if (el) {
-      pendingFocus.current = false
-      el.focus({ preventScroll: true })
-    }
-  })
 
   const { focusRequest } = props
   useEffect(() => {
     if (!focusRequest) return
     const i = list.ids.indexOf(focusRequest.id)
-    if (i >= 0) focusTile(i)
+    if (i < 0) return
+    anchor.current = i
+    focusTile(i)
   }, [focusRequest, list, focusTile])
 
   const selectRange = (from: number, to: number, add: boolean) => {
