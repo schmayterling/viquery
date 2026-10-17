@@ -146,8 +146,12 @@ test('search utility fuses branches, merges moments, filters, and refreshes rewr
   const root = mkdtempSync(join(tmpdir(), 'viquery-search-'))
   const db = new DatabaseSync(dataPaths(root).db)
   const { sample, file } = fixture(db)
+  let encodedQueries = 0
   const encoders: TextEncoders = {
-    clip: async () => vector(1, 512),
+    clip: async () => {
+      encodedQueries++
+      return vector(1, 512)
+    },
     sentence: async () => vector(1, 384),
   }
   const parent = new EventEmitter()
@@ -244,6 +248,7 @@ test('search utility fuses branches, merges moments, filters, and refreshes rewr
     'similarity excludes source media',
   )
   await search(all, 'needle" OR (name:*) NOT x')
+  assert.equal(encodedQueries, 2, 'filter changes reuse the query vectors')
 
   // A renderer reload gets a fresh port without reloading vectors/models.
   const replacement = new MessageChannel()
@@ -280,4 +285,6 @@ test('search utility fuses branches, merges moments, filters, and refreshes rewr
     r.images.some((h) => h.mediaId === 213),
   )
   assert.ok(result.images.some((h) => h.mediaId === 213))
+  db.exec("update job set state = 'done' where media_id = 2")
+  await changed([], [], (r) => r.pending.images === 0)
 })
