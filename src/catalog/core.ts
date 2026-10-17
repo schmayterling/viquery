@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { createReadStream, existsSync, realpathSync } from 'node:fs'
+import { createReadStream, type Dir, existsSync, realpathSync } from 'node:fs'
 import { open, opendir, realpath, stat } from 'node:fs/promises'
 import { basename, extname, join, sep } from 'node:path'
 import type { SQLInputValue, StatementSync } from 'node:sqlite'
@@ -143,6 +143,8 @@ export class Catalog extends EventEmitter<{
   private paused = false
   private closed = false
   private changed = new Set<number>()
+  // root dev/ino at each folder's last complete scan
+  private roots = new Map<number, { dev: number; ino: number }>()
   private removed = new Set<number>()
   private libraryDirty = false
   private changeTimer: ReturnType<typeof setTimeout> | undefined
@@ -426,8 +428,13 @@ export class Catalog extends EventEmitter<{
       folder.id,
     )
     const byPath = new Map(previous.map((file) => [file.path, file]))
+    const skipped: string[] = []
     const rootInfo = await stat(folder.path)
-    for await (const path of walk(folder.path, this.dataDir)) {
+    for await (const path of walk(
+      await opendir(folder.path),
+      this.dataDir,
+      skipped,
+    )) {
       if (
         this.closed ||
         !this.one('select id from folder where id=?', folder.id)
@@ -482,8 +489,32 @@ export class Catalog extends EventEmitter<{
     const currentRoot = await stat(folder.path)
     if (rootInfo.ino !== currentRoot.ino || rootInfo.dev !== currentRoot.dev)
       throw new Error('folder changed during scan')
+    for (const directory of skipped)
+      this.emit(
+        'warning',
+        new Error(`${directory}: unreadable; its indexed files are kept`),
+      )
+    const vanished = previous.filter(
+      (file) =>
+        !seen.has(file.path) &&
+        !skipped.some((directory) => contains(directory, file.path)),
+    )
+    // an unmounted drive can leave an empty mount point, and another volume can appear at
+    // the same path. neither means every file was deleted: keep aliases, show it offline.
+    const known = this.roots.get(folder.id)
+    if (
+      previous.length &&
+      vanished.length === previous.length &&
+      (!seen.size ||
+        (known && (known.dev !== rootInfo.dev || known.ino !== rootInfo.ino)))
+    ) {
+      this.stmt('insert or ignore into offline_folder(id) values (?)').run(
+        folder.id,
+      )
+      return
+    }
+    this.roots.set(folder.id, { dev: rootInfo.dev, ino: rootInfo.ino })
     this.stmt('delete from offline_folder where id=?').run(folder.id)
-    const vanished = previous.filter((file) => !seen.has(file.path))
     transaction(this.db, () => {
       for (const file of vanished)
         this.stmt('delete from file where path=? and folder_id=?').run(
@@ -834,17 +865,31 @@ export class Catalog extends EventEmitter<{
   }
 }
 
-async function* walk(path: string, ignored: string): AsyncGenerator<string> {
-  const entries = await opendir(path)
-  for await (const entry of entries) {
-    const child = join(path, entry.name)
+// unreadable or vanished subdirectories are reported in skipped instead of failing the scan.
+async function* walk(
+  directory: Dir,
+  ignored: string,
+  skipped: string[],
+): AsyncGenerator<string> {
+  for await (const entry of directory) {
+    const child = join(directory.path, entry.name)
     if (
       child === ignored ||
       ['.Trash', '.Trashes', '$RECYCLE.BIN'].includes(entry.name)
     )
       continue
-    if (entry.isDirectory()) yield* walk(child, ignored)
-    else if (
+    if (entry.isDirectory()) {
+      const nested = await opendir(child).catch((error) => {
+        if (
+          !['ENOENT', 'EACCES', 'EPERM', 'ENOTDIR'].includes(
+            (error as NodeJS.ErrnoException).code ?? '',
+          )
+        )
+          throw error
+        skipped.push(child)
+      })
+      if (nested) yield* walk(nested, ignored, skipped)
+    } else if (
       entry.isFile() &&
       (images.has(extname(child).toLowerCase()) ||
         videos.has(extname(child).toLowerCase()))

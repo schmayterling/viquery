@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import {
+  chmod,
   cp,
   mkdir,
   mkdtemp,
@@ -339,5 +340,22 @@ test('catalog folder boundaries: sampled identity, nested folders, missing roots
   assert.deepEqual(
     catalog.folders().map((folder) => [folder.id, folder.count]),
     [[absorbed.id, 3]],
+  )
+
+  // an unreadable subdirectory is skipped, not a reason to take the folder offline or drop its files
+  await chmod(child, 0)
+  await catalog.rescan()
+  await chmod(child, 0o700)
+  assert.deepEqual(
+    catalog.folders().map((folder) => [folder.state, folder.count]),
+    [['online', 3]],
+  )
+  // an unmounted drive leaving an empty mount point is offline, not a mass deletion
+  await rename(large, `${large}-unmounted`)
+  await mkdir(large)
+  await catalog.rescan()
+  assert.deepEqual(
+    catalog.folders().map((folder) => [folder.state, folder.count]),
+    [['offline', 3]],
   )
 })
