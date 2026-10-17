@@ -36,7 +36,7 @@ the shared contracts are code, not prose: `src/shared/api.ts` (renderer api + vq
 - media rows without aliases remain stored but hidden from library/search; garbage collection is a separate explicit slice.
 - scan: stat-gated. unchanged (path, size, mtime) skips hashing. changed or new file -> hash -> upsert media -> alias.
 - stages per media, each a row in `job`: `thumb` (probe + thumbnail + video sprite) -> `visual` (scenes + frame embeddings) -> `ocr` (visible text) -> `speech` (videos with audio). scheduling order matches the ui phases: all thumbs first, then images visual, then videos visual, then text, then speech. ocr requires the current visual job to finish; replacing visual rows invalidates that media's ocr rows and job.
-- jobs are idempotent: results are written in one transaction that replaces that media's rows for that stage+generation. on startup `running` resets to `pending`. failures record error + attempts; three attempts then `failed` (visible, not retried until rescan).
+- jobs are idempotent: results are written in one transaction that replaces that media's rows for that stage+generation. on startup `running` resets to `pending`. failures record error + attempts; three attempts then `failed` (visible; retried only when one of its files changes or its folder is added again, never by routine reconciliation).
 - generations (`GENERATION` in protocol.ts) version model + preprocessing + segmentation. search loads only current-generation rows; catalog re-enqueues stale ones.
 
 ## schema (catalog owns migrations; `PRAGMA user_version`)

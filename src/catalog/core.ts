@@ -253,6 +253,11 @@ export class Catalog extends EventEmitter<{
         this.stmt('delete from offline_folder where id=?').run(nested.id)
         this.stmt('delete from folder where id=?').run(nested.id)
       }
+      // adding a folder again is the explicit retry for its failed jobs
+      this.stmt(`update job set state='pending',attempts=0,error=null where state='failed'
+        and media_id in (select media_id from file where folder_id=?)`).run(
+        row.id,
+      )
       return row
     })
     this.notify([])
@@ -381,9 +386,6 @@ export class Catalog extends EventEmitter<{
       .then(async () => {
         this.scanning++
         this.found = 0
-        this.db.exec(
-          "update job set state='pending',attempts=0,error=null where state='failed'",
-        )
         this.progress()
         this.pump() // already-queued thumbnails run while the scan walks
         try {
@@ -478,6 +480,10 @@ export class Catalog extends EventEmitter<{
           this.stmt(
             "insert into job(media_id,stage,generation,state) values (?,'thumb',?,'pending') on conflict do nothing",
           ).run(id, generations.thumb)
+          // a new or changed alias earns its media's failed jobs one more round of attempts
+          this.stmt(
+            "update job set state='pending',attempts=0,error=null where media_id=? and state='failed'",
+          ).run(id)
           return id
         })
         this.notify(old ? [old.media_id, mediaId] : [mediaId])

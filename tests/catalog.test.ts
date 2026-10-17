@@ -10,6 +10,7 @@ import {
   rename,
   rm,
   unlink,
+  utimes,
   writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -179,6 +180,13 @@ test('catalog fixture: content identity, aliases, phased jobs, retries, resume a
   )
 
   speechFails = false
+  const speechCalls = calls.length
+  await catalog.rescan()
+  await catalog.settled()
+  assert.equal(calls.length, speechCalls)
+  // failures are retried when their file changes, not on every reconciliation
+  const touched = new Date()
+  await utimes(join(library, 'launch.mp4'), touched, touched)
   await catalog.rescan()
   await catalog.settled()
   assert.equal(
