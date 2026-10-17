@@ -179,7 +179,7 @@ test('video rpc returns ordered heat, gated markers and speech-only scenes using
   const client = connect(rpcPort(channel.port1))
   const global = await client.call<SearchResult>('search', {
     query: 'rocket',
-    filter: { ...all, media: 'video' },
+    filter: all, // stronger photos must not gate this video out of the all-media result
   })
   const video = (query: string, id = 4) =>
     client.call<SceneMatch[]>('searchVideo', { id, query })

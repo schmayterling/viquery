@@ -286,44 +286,67 @@ export class SearchEngine {
   async search(query: string, filter: Filter): Promise<SearchResult> {
     const start = performance.now()
     const text = queryText(query)
-    const sqlFilter = filterSql(filter)
-    if (!text)
-      return this.result(
-        query,
-        [],
-        this.selected(filter, sqlFilter.params.recent as number | undefined),
-        start,
-      )
-    const [clip, sentence] = await this.encode(text)
+    filterSql(filter)
+    const encoded = text ? await this.encode(text) : null
     return this.snapshot(async () => {
-      const selected = this.selected(
-        filter,
-        sqlFilter.params.recent as number | undefined,
-      )
-      const visual = this.vectorBranch(
-        [{ table: this.visual, source: 'visual' }],
-        [clip],
-        selected,
-      )
-      const speech = this.vectorBranch(
-        [
-          { table: this.speech, source: 'speech' },
-          { table: this.text, source: 'text' },
-        ],
-        [sentence],
-        selected,
-      )
-      const lexical = this.read(() =>
-        this.lexicalBranch(text, selected, sqlFilter),
-      )
-      const [visualHits, speechHits] = await Promise.all([visual, speech])
-      return this.result(
+      if (filter.media !== 'all')
+        return this.rank(query, text, encoded, filter, start)
+      // relevance bands and candidate caps are per kind: a dense video must not crowd out
+      // or out-score the photos an images tab would show for the same query.
+      const [images, videos] = await Promise.all([
+        this.rank(query, text, encoded, { ...filter, media: 'image' }, start),
+        this.rank(query, text, encoded, { ...filter, media: 'video' }, start),
+      ])
+      return {
         query,
-        [visualHits, lexical, speechHits],
-        selected,
-        start,
-      )
+        images: images.images,
+        videos: videos.videos,
+        pending: {
+          images: images.pending.images,
+          videos: videos.pending.videos,
+        },
+        tookMs: performance.now() - start,
+      }
     })
+  }
+
+  private async rank(
+    query: string,
+    text: string,
+    encoded: [Float32Array, Float32Array] | null,
+    filter: Filter,
+    start: number,
+  ): Promise<SearchResult> {
+    const sqlFilter = filterSql(filter)
+    const selected = this.selected(
+      filter,
+      sqlFilter.params.recent as number | undefined,
+    )
+    if (!encoded) return this.result(query, [], selected, start)
+    const [clip, sentence] = encoded
+    const visual = this.vectorBranch(
+      [{ table: this.visual, source: 'visual' }],
+      [clip],
+      selected,
+    )
+    const speech = this.vectorBranch(
+      [
+        { table: this.speech, source: 'speech' },
+        { table: this.text, source: 'text' },
+      ],
+      [sentence],
+      selected,
+    )
+    const lexical = this.read(() =>
+      this.lexicalBranch(text, selected, sqlFilter),
+    )
+    const [visualHits, speechHits] = await Promise.all([visual, speech])
+    return this.result(
+      query,
+      [visualHits, lexical, speechHits],
+      selected,
+      start,
+    )
   }
 
   async searchVideo(id: number, query: string): Promise<SceneMatch[]> {
