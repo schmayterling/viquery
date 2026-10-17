@@ -72,13 +72,23 @@ function queryText(query: string) {
   return query.trim()
 }
 
+const stopwords = new Set(
+  'a an the and or of to in on at for from with is are was were be been being it its this that these those i me my we our you your he his she her they their so what which who when where how can could do does did some any'.split(
+    ' ',
+  ),
+)
+// FTS5 §3: quoted terms joined with AND require every content word.
+// BM25 §5.1.1: lower ranks are stronger; ubiquitous terms use IDF 1e-6.
+// A strength floor also rejects isolated hits diluted by long documents.
+// https://sqlite.org/fts5.html#full_text_query_syntax
+// https://sqlite.org/fts5.html#the_bm25_function (bundled SQLite, Node 24.22).
+const lexicalFloor = 5e-7
+
 function ftsQuery(query: string) {
-  // FTS5 strings use doubled quotes; SQL binding alone does not escape MATCH syntax.
-  // SQLite FTS5 §3.1: https://sqlite.org/fts5.html (Node 24.22 bundled SQLite).
-  return query
-    .split(/\s+/u)
-    .map((term) => `"${term.replaceAll('"', '""')}"`)
-    .join(' OR ')
+  return [...new Set(query.toLowerCase().match(/[\p{L}\p{N}\p{M}]+/gu) ?? [])]
+    .filter((term) => !stopwords.has(term))
+    .map((term) => `"${term}"`)
+    .join(' AND ')
 }
 
 function filterSql(filter: Filter) {
@@ -490,6 +500,8 @@ export class SearchEngine {
   }
 
   private lexicalVideo(id: number, query: string): Map<string, number> {
+    const match = ftsQuery(query)
+    if (!match) return new Map()
     if (this.videoFts?.mediaId !== id) {
       this.videoFts?.db.close()
       // BM25 computes corpus statistics. A single-video FTS cache keeps those local too;
@@ -522,12 +534,14 @@ export class SearchEngine {
       (
         this.videoFts.db
           .prepare('select id, source, rank from segment where segment match ?')
-          .all(ftsQuery(query)) as {
+          .all(match) as {
           id: number
           source: string
           rank: number
         }[]
-      ).map((row) => [`${row.source}:${row.id}`, -row.rank]),
+      )
+        .filter((row) => -row.rank >= lexicalFloor)
+        .map((row) => [`${row.source}:${row.id}`, -row.rank]),
     )
   }
 
@@ -680,6 +694,7 @@ export class SearchEngine {
   ) {
     const branch = new Map<string, Evidence>()
     const match = ftsQuery(query)
+    if (!match) return branch
     const speech = this.db
       .prepare(`select t.media_id, t.start_ms, t.end_ms, t.text, transcript_fts.rank
       from transcript_fts join transcript t on t.id = transcript_fts.rowid join media m on m.id = t.media_id
@@ -706,6 +721,7 @@ export class SearchEngine {
       where file_fts match $query and ${filter.where} order by file_fts.rank limit 200`)
       .all({ ...filter.params, query: match }) as Lexical[]
     for (const row of [...speech, ...ocr, ...files]
+      .filter((row) => -row.rank >= lexicalFloor)
       .sort((a, b) => a.rank - b.rank || a.media_id - b.media_id)
       .slice(0, 200)) {
       if (!selected.has(row.media_id)) continue

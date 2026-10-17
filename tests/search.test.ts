@@ -228,12 +228,13 @@ test('search utility fuses branches, merges moments, filters, and refreshes rewr
   const db = openDatabase(dataPaths(root).db)
   const { sample, file } = fixture(db)
   let encodedQueries = 0
+  const lexicalOnly = new Set(['the needle', 'needle unicorn', 'what is this'])
   const encoders: TextEncoders = {
-    clip: async () => {
+    clip: async (query) => {
       encodedQueries++
-      return vector(1, 512)
+      return vector(lexicalOnly.has(query) ? -1 : 1, 512)
     },
-    sentence: async () => vector(1, 384),
+    sentence: async (query) => vector(lexicalOnly.has(query) ? -1 : 1, 384),
   }
   const parent = new EventEmitter()
   const utility = startSearchUtility(parent, async () => encoders)
@@ -331,6 +332,19 @@ test('search utility fuses branches, merges moments, filters, and refreshes rewr
   )
   await search(all, 'needle" OR (name:*) NOT x')
   assert.equal(encodedQueries, 2, 'filter changes reuse the query vectors')
+
+  // Disable semantic matches for these queries to exercise the real FTS branch.
+  assert.ok(
+    (await search(all, 'the needle')).videos.some((v) => v.mediaId === 4),
+  )
+  for (const query of ['needle unicorn', 'what is this']) {
+    assert.deepEqual((await search(all, query)).videos, [])
+    const local = await client.call<SceneMatch[]>('searchVideo', {
+      id: 4,
+      query,
+    })
+    assert.ok(local.every((s) => !s.match))
+  }
 
   // A renderer reload gets a fresh port without reloading vectors/models.
   const replacement = new MessageChannel()
