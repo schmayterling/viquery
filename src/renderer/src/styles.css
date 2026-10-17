@@ -755,6 +755,8 @@ p {
 
 /* ---- content card ---- */
 .main {
+  grid-column: 2;
+  isolation: isolate;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -904,8 +906,12 @@ p {
 .scroll:focus-visible {
   outline: 0;
 }
+.scroll > .empty {
+  min-height: 100%;
+  padding-bottom: 48px;
+}
 .status-line {
-  margin: -6px 0 var(--space-2);
+  margin: 0 0 var(--space-1);
   color: var(--muted);
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
@@ -1472,6 +1478,7 @@ p {
   flex: 1;
 }
 .controls-row select {
+  field-sizing: content;
   height: 28px;
   padding: 0 6px;
   border: 0;
@@ -1486,6 +1493,7 @@ p {
 }
 .controls-row input[type="range"] {
   width: 72px;
+  accent-color: var(--ink);
 }
 .query-chip {
   display: inline-flex;
@@ -1723,9 +1731,10 @@ p {
   .app[data-sidebar] {
     grid-template-columns: 0 minmax(0, 1fr);
   }
+  /* drawer: over the card, under the topbar so the toggle stays reachable */
   .sidebar {
     position: fixed;
-    z-index: var(--z-viewer);
+    z-index: var(--z-sticky);
     inset: 0 auto 0 0;
     width: min(var(--sidebar-width), 85vw);
     background: var(--surface);

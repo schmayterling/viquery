@@ -72,10 +72,19 @@ export function Grid(props: Props) {
   useLayoutEffect(() => {
     const el = gridRef.current
     if (!el) return
-    const ro = new ResizeObserver(() => setWidth(el.clientWidth))
+    // relayout of 100k items costs ~30ms, so width changes settle first (sidebar
+    // animation, window drag) instead of re-justifying every frame
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const ro = new ResizeObserver(() => {
+      clearTimeout(timer)
+      timer = setTimeout(() => setWidth(el.clientWidth), 120)
+    })
     ro.observe(el)
     setWidth(el.clientWidth)
-    return () => ro.disconnect()
+    return () => {
+      ro.disconnect()
+      clearTimeout(timer)
+    }
   }, [])
   // offset of the grid inside a shared scroller (search puts moments above it)
   useLayoutEffect(() => {

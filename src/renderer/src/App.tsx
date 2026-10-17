@@ -236,6 +236,13 @@ export function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [rowHeight, setRowHeight, addFolder])
 
+  // crossing the narrow breakpoint turns the sidebar into a closed drawer and back
+  useEffect(() => {
+    const change = () => setSidebar(!narrow.matches)
+    narrow.addEventListener('change', change)
+    return () => narrow.removeEventListener('change', change)
+  }, [])
+
   const choosePlace = (p: Place) => {
     setPlace(p)
     if (narrow.matches) setSidebar(false)
@@ -349,26 +356,26 @@ export function App() {
               focusRequest={focusRequest}
             />
           )}
+          {result && shown === 0 && !stale && (
+            <NoResults
+              query={query.trim()}
+              scoped={place.scope.kind !== 'all'}
+              dated={dates !== null}
+              hiddenByMedia={result.images.length + result.videos.length}
+              pendingVideos={result.pending.videos}
+              onAllMedia={() =>
+                setPlace({ scope: { kind: 'all' }, media: place.media })
+              }
+              onClearDates={() => setDates(null)}
+              onShowAll={() => setPlace({ ...place, media: 'all' })}
+            />
+          )}
           <span className="sr-only" role="status" aria-live="polite">
             {result && !stale
               ? summary(result, place.media) || 'No matches'
               : ''}
           </span>
         </div>
-        {result && shown === 0 && !stale && (
-          <NoResults
-            query={query.trim()}
-            scoped={place.scope.kind !== 'all'}
-            dated={dates !== null}
-            hiddenByMedia={result.images.length + result.videos.length}
-            pendingVideos={result.pending.videos}
-            onAllMedia={() =>
-              setPlace({ scope: { kind: 'all' }, media: place.media })
-            }
-            onClearDates={() => setDates(null)}
-            onShowAll={() => setPlace({ ...place, media: 'all' })}
-          />
-        )}
       </>
     )
   } else if (list) {

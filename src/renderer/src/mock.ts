@@ -341,8 +341,9 @@ function svg(id: MediaId, t: number, aspect: number) {
   return { W, H, body }
 }
 const dataUrl = (s: string) => `data:image/svg+xml,${encodeURIComponent(s)}`
-const doc = (W: number, H: number, body: string) =>
-  `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' viewBox='0 0 ${W} ${H}'>${body}</svg>`
+// scale sets the intrinsic size: originals are 5x the thumbnail, like a real photo
+const doc = (W: number, H: number, body: string, scale = 1) =>
+  `<svg xmlns='http://www.w3.org/2000/svg' width='${W * scale}' height='${H * scale}' viewBox='0 0 ${W} ${H}'>${body}</svg>`
 
 const thumbs = new Map<MediaId, string>()
 function thumb(id: MediaId) {
@@ -561,7 +562,11 @@ export async function install() {
     )
     return dataUrl(doc(W, H, body))
   }
-  mediaUrl.original = (id) => (lib.kind[idx(id)]! ? video : thumb(id))
+  mediaUrl.original = (id) => {
+    if (lib.kind[idx(id)]) return video
+    const { W, H, body } = svg(id, 0.3, lib.aspect[idx(id)]!)
+    return dataUrl(doc(W, H, body, 5))
+  }
 
   // what the macOS traffic lights occupy in the real window
   if (document.documentElement.dataset.platform === 'darwin')
