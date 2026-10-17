@@ -1,3 +1,4 @@
+import { isMainThread } from 'node:worker_threads'
 import type { MessagePortMain } from 'electron'
 import type { Filter } from '../shared/api.ts'
 import { dataPaths } from '../shared/paths.ts'
@@ -78,4 +79,4 @@ export function startSearchUtility(
   }
 }
 
-if (process.parentPort) startSearchUtility(process.parentPort)
+if (isMainThread && process.parentPort) startSearchUtility(process.parentPort)
