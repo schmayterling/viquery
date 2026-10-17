@@ -31,7 +31,7 @@ optional worker_threads inside utility: measured pure-js cpu kernels
 raw frames stay in indexing process; thumbnails use file streams
 ```
 
-three utility processes are deliberate isolation, not a configurable pool. synchronous sqlite, native inference, or vector search may occupy one event loop without delaying another role. start renderer immediately, catalog next, search warm-up after first paint, indexing last. start background processing at one file; ffmpeg two decode threads; sharp one or two threads; ort indexing two intra-op threads. tune on four-core x86. these budgets are proposals, not optimal measured settings; native libraries may spawn extra threads. interactive query encoder gets priority over new background batches. [electron performance][e-performance], [node workers][n-workers], [sharp concurrency][s-utility], [ort threading][ort-threads].
+three utility processes are deliberate isolation, not a configurable pool. synchronous sqlite, native inference, or vector search may occupy one event loop without delaying another role. start renderer immediately, catalog next, search warm-up after first paint, indexing last. start background processing at one file. four-core baseline: ffmpeg one decode/filter thread, sharp one thread, ort one intra-op thread; overlapping decode+inference should consume at most two background cpu workers. m2 can try two threads per active native stage after measuring contention, rather than multiplying independent thread pools. interactive text encoder starts with one thread and priority over new background batches. isolation prevents event-loop blocking, not cpu/ram/io contention; budgets are proposals, not measured optimal settings, and native libraries may spawn extra threads. [electron performance][e-performance], [node workers][n-workers], [sharp concurrency][s-utility], [ort threading][ort-threads].
 
 | module / process | responsibility |
 | --- | --- |
@@ -405,17 +405,17 @@ cpu baseline works with no accelerator. optional decode input flags: mac `-hwacc
 
 ```sh
 # keyframe overview, not complete semantic/scene coverage
-ffmpeg -nostdin -skip_frame nokey -i INPUT -an -sn -dn \
+ffmpeg -nostdin -threads 1 -filter_threads 1 -skip_frame nokey -i INPUT -an -sn -dn \
   -vf "scale=320:-2,showinfo" -fps_mode passthrough \
   -pix_fmt rgb24 -f rawvideo pipe:1
 
 # select score is 0..1; this filtering follows decode
-ffmpeg -nostdin -i INPUT -an -sn -dn \
+ffmpeg -nostdin -threads 1 -filter_threads 1 -i INPUT -an -sn -dn \
   -vf "select='gt(scene,0.3)',scale=320:-2,showinfo" \
   -fps_mode passthrough -pix_fmt rgb24 -f rawvideo pipe:1
 
 # scdet score is percentage 0..100, default threshold10
-ffmpeg -nostdin -i INPUT -an -sn -dn \
+ffmpeg -nostdin -threads 1 -filter_threads 1 -i INPUT -an -sn -dn \
   -vf "scdet=threshold=10:sc_pass=1,scale=320:-2,showinfo" \
   -fps_mode passthrough -pix_fmt rgb24 -f rawvideo pipe:1
 ```
@@ -489,7 +489,7 @@ linux:
 
 sketch omits credentials, entitlement filenames and ci arch matrix; confirm `${os}`/`${arch}` match staged directory names. actual tools/models live under `process.resourcesPath`, outside asar. native addon + dylib/so/dll dependencies must travel together. smart unpack helps; explicit sharp/@img unpack matches sharp's instructions. better-sqlite3 fallback adds its build native path to unpack and uses target `electron-builder install-app-deps`/`@electron/rebuild`. [builder contents][b-contents], [sharp electron-builder][s-install], [native modules][e-native].
 
-keep sharp/ort/usearch/watcher external to bundler. use target prebuilds when compatible; don't blanket force source rebuild of every napi module. `npmRebuild: true` permits required target preparation, unlike blindly copied hibi setting. audit installed optional deps so mac doesn't ship linux/windows payloads. ort cpu prebuilds documented for all six os/arch pairs; provider support differs, and python/c-sdk support does not imply node binding parity. [ort node matrix][ort-node], [native rebuild][b-config].
+keep sharp/ort/usearch/watcher external to bundler. use target prebuilds when compatible; don't blanket force source rebuild of every napi module. `npmRebuild: true` permits required target preparation, unlike blindly copied hibi setting. audit installed optional deps so mac doesn't ship linux/windows payloads. ort cpu prebuilds documented for all six os/arch pairs; provider support differs, and python/c-sdk support does not imply node binding parity. [ort node matrix][ort-node], [native rebuild][b-config]. for cpu-only build/install, set `ONNXRUNTIME_NODE_INSTALL=skip` or documented `--onnxruntime-node-install=skip`; onnxruntime-node1.30 postinstall otherwise may fetch extra gpu-provider binaries. cpu baseline uses bundled files, with no install/download script invoked by shipped app. [versioned1.30 readme](https://github.com/microsoft/onnxruntime/blob/v1.30.0/js/node/README.md), [installer](https://github.com/microsoft/onnxruntime/blob/v1.30.0/js/node/script/install.js). versioned readme says cuda11 support removed since1.22; generic provider docs can lag release details.
 
 ### measured distribution ingredients
 
