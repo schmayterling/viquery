@@ -9,7 +9,7 @@ export function openDatabase(path: string): DatabaseSync {
     'pragma journal_mode = WAL; pragma synchronous = NORMAL; pragma busy_timeout = 5000',
   )
   const version = Number(db.prepare('pragma user_version').get()?.user_version)
-  if (version > 1)
+  if (version > 2)
     throw new Error('library was created by a newer viquery version')
   if (version === 0) {
     transaction(db, () => {
@@ -84,6 +84,31 @@ export function openDatabase(path: string): DatabaseSync {
           insert into file_fts(rowid, name) values (new.id, new.name);
         end;
         pragma user_version = 1;
+      `)
+    })
+  }
+  if (version < 2) {
+    transaction(db, () => {
+      db.exec(`
+        create table ocr (
+          id integer primary key, media_id integer not null references media(id) on delete cascade,
+          generation integer not null, t_ms integer, text text not null, embedding blob not null
+        );
+        create index ocr_media on ocr(media_id, t_ms);
+        create virtual table ocr_fts using fts5(
+          text, content='ocr', content_rowid='id', tokenize='unicode61 remove_diacritics 2'
+        );
+        create trigger ocr_ai after insert on ocr begin
+          insert into ocr_fts(rowid, text) values (new.id, new.text);
+        end;
+        create trigger ocr_ad after delete on ocr begin
+          insert into ocr_fts(ocr_fts, rowid, text) values ('delete', old.id, old.text);
+        end;
+        create trigger ocr_au after update on ocr begin
+          insert into ocr_fts(ocr_fts, rowid, text) values ('delete', old.id, old.text);
+          insert into ocr_fts(rowid, text) values (new.id, new.text);
+        end;
+        pragma user_version = 2;
       `)
     })
   }

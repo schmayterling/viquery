@@ -45,19 +45,17 @@ const sampleSql = `select id, media_id, scene_id, t_ms as start_ms,
   coalesce(t_ms, 0) as end_ms, null as text, embedding from sample where generation = ?`
 const transcriptSql = `select id, media_id, null as scene_id, start_ms, end_ms, text, embedding
   from transcript where generation = ?`
+const ocrSql = `select id, media_id, null as scene_id, t_ms as start_ms,
+  coalesce(t_ms, 0) as end_ms, text, embedding from ocr where generation = ?`
 const sceneSql =
   'select id, media_id, start_ms, end_ms from scene where generation = ?'
 // bench-calibration-results.json: CLIP positives .235–.335, negatives .150–.246, abstract tops >= .216; wide retrieval band, marker band < .0077 launch gap; JFK .761 vs unrelated <= .284.
-const relevanceFloor = { visual: 0.2, speech: 0.45 }
+const relevanceFloor = { visual: 0.2, speech: 0.45, text: 0.45 }
 const visualBand = { global: 0.08, timeline: 0.006 }
-const relevanceCutoff = (
-  source: 'visual' | 'speech',
-  best: number,
-  band: number,
-) =>
+const relevanceCutoff = (source: MatchSource, best: number, band: number) =>
   source === 'visual'
     ? Math.max(relevanceFloor.visual, best - band)
-    : relevanceFloor.speech
+    : relevanceFloor[source]
 const maxMomentMs = 30_000
 const recentMs = 30 * 24 * 60 * 60 * 1000
 const key = (t: Target) => (t.scene ? `s${t.scene.id}` : `m${t.mediaId}`)
@@ -124,6 +122,7 @@ export class SearchEngine {
   private encoders: TextEncoders
   private visual = new Vectors(512)
   private speech = new Vectors(384)
+  private text = new Vectors(384)
   private media = new Map<number, Media & { folderIds: number[] }>()
   private scenes = new Map<number, Scene>()
   private mediaScenes = new Map<number, Scene[]>()
@@ -147,11 +146,11 @@ export class SearchEngine {
         .prepare(`${sceneSql} order by start_ms, id`)
         .iterate(GENERATION.visual))
         this.addScene(row as Scene)
-      for (const [table, sql, generation] of [
-        [this.visual, sampleSql, GENERATION.visual],
-        [this.speech, transcriptSql, GENERATION.speech],
+      for (const [table, sql, generation, name] of [
+        [this.visual, sampleSql, GENERATION.visual, 'sample'],
+        [this.speech, transcriptSql, GENERATION.speech, 'transcript'],
+        [this.text, ocrSql, GENERATION.ocr, 'ocr'],
       ] as const) {
-        const name = table === this.visual ? 'sample' : 'transcript'
         const count = this.db
           .prepare(`select count(*) as n from ${name} where generation = ?`)
           .get(generation)!.n as number
@@ -215,6 +214,7 @@ export class SearchEngine {
     }
     this.visual.remove(removed)
     this.speech.remove(removed)
+    this.text.remove(removed)
     for (const id of removed) {
       this.media.delete(id)
       for (const scene of this.mediaScenes.get(id) ?? [])
@@ -230,6 +230,7 @@ export class SearchEngine {
       )
       const samples = this.db.prepare(`${sampleSql} and media_id = ?`)
       const transcripts = this.db.prepare(`${transcriptSql} and media_id = ?`)
+      const ocr = this.db.prepare(`${ocrSql} and media_id = ?`)
       this.refreshPending()
       const deleted = new Set(change.removedMedia)
       for (const id of new Set(change.changedMedia)) {
@@ -243,6 +244,8 @@ export class SearchEngine {
           this.visual.append(sample as VectorRow)
         for (const segment of transcripts.iterate(GENERATION.speech, id))
           this.speech.append(segment as VectorRow)
+        for (const span of ocr.iterate(GENERATION.ocr, id))
+          this.text.append(span as VectorRow)
       }
     })
   }
@@ -297,12 +300,18 @@ export class SearchEngine {
         filter,
         sqlFilter.params.recent as number | undefined,
       )
-      const visual = this.vectorBranch(this.visual, [clip], selected, 'visual')
+      const visual = this.vectorBranch(
+        [{ table: this.visual, source: 'visual' }],
+        [clip],
+        selected,
+      )
       const speech = this.vectorBranch(
-        this.speech,
+        [
+          { table: this.speech, source: 'speech' },
+          { table: this.text, source: 'text' },
+        ],
         [sentence],
         selected,
-        'speech',
       )
       const lexical = this.read(() =>
         this.lexicalBranch(text, selected, sqlFilter),
@@ -340,6 +349,7 @@ export class SearchEngine {
               match: false,
             } as SceneMatch,
             signals: [null, null, null] as (number | null)[],
+            ocrMs: null as number | null,
           },
         ]),
       )
@@ -359,29 +369,42 @@ export class SearchEngine {
         if (score >= cutoff) entry.moment.sources.push('visual')
       }
       const lexical = this.lexicalVideo(id, text)
-      for (const { index, score } of this.speech.ranked(id, sentence)) {
-        const lexicalScore = lexical.get(this.speech.ids[index]!)
-        for (const { scene } of this.targets(
-          id,
-          this.speech.startMs[index]!,
-          this.speech.endMs[index]!,
-        )) {
-          const entry = heat.get(scene!.id)!
-          if (entry.signals[1] === null) {
-            entry.signals[1] = score
-            if (score >= relevanceFloor.speech) {
-              entry.moment.sources.push('speech')
-              entry.moment.snippet = this.speech.text[index]!
+      for (const [table, source] of [
+        [this.speech, 'speech'],
+        [this.text, 'text'],
+      ] as const) {
+        for (const { index, score } of table.ranked(id, sentence)) {
+          const lexicalScore = lexical.get(`${source}:${table.ids[index]!}`)
+          for (const { scene } of this.targets(
+            id,
+            table.startMs[index]!,
+            table.endMs[index]!,
+          )) {
+            const entry = heat.get(scene!.id)!
+            if (score > (entry.signals[1] ?? -Infinity)) {
+              entry.signals[1] = score
+              if (score >= relevanceFloor[source])
+                entry.moment.snippet = table.text[index]!
             }
-          }
-          if (
-            lexicalScore !== undefined &&
-            lexicalScore > (entry.signals[2] ?? -Infinity)
-          ) {
-            entry.signals[2] = lexicalScore
-            if (!entry.moment.sources.includes('text'))
-              entry.moment.sources.push('text')
-            entry.moment.snippet = this.speech.text[index]!
+            if (
+              score >= relevanceFloor[source] &&
+              !entry.moment.sources.includes(source)
+            )
+              entry.moment.sources.push(source)
+            if (
+              lexicalScore !== undefined &&
+              lexicalScore > (entry.signals[2] ?? -Infinity)
+            ) {
+              entry.signals[2] = lexicalScore
+              if (!entry.moment.sources.includes('text'))
+                entry.moment.sources.push('text')
+              entry.moment.snippet = table.text[index]!
+            }
+            if (
+              source === 'text' &&
+              (score >= relevanceFloor.text || lexicalScore !== undefined)
+            )
+              entry.ocrMs ??= table.startMs[index]!
           }
         }
       }
@@ -396,34 +419,44 @@ export class SearchEngine {
           (signals[2] ?? 0) / (lexicalMax || 1),
       )
       const max = Math.max(...scores)
-      return entries.map(({ moment }, index) => ({
+      return entries.map(({ moment, ocrMs }, index) => ({
         ...moment,
         seekMs:
-          moment.sources.length && !moment.sources.includes('visual')
+          ocrMs ??
+          (moment.sources.length && !moment.sources.includes('visual')
             ? moment.startMs
-            : moment.seekMs,
+            : moment.seekMs),
         score: max > 0 ? scores[index]! / max : 0,
         match: moment.sources.length > 0,
       }))
     })
   }
 
-  private lexicalVideo(id: number, query: string): Map<number, number> {
+  private lexicalVideo(id: number, query: string): Map<string, number> {
     if (this.videoFts?.mediaId !== id) {
       this.videoFts?.db.close()
       // BM25 computes corpus statistics. A single-video FTS cache keeps those local too;
       // a media-filtered join to the library FTS still visits other videos' term postings.
       // SQLite FTS5 §5.1.1 (Node 24.22): https://sqlite.org/fts5.html#the_bm25_function
       const db = new DatabaseSync(':memory:')
-      db.exec('create virtual table segment using fts5(text); begin')
-      const insert = db.prepare('insert into segment(rowid, text) values(?, ?)')
+      db.exec(
+        'create virtual table segment using fts5(text, id unindexed, source unindexed); begin',
+      )
+      const insert = db.prepare(
+        'insert into segment(id, source, text) values(?, ?, ?)',
+      )
       this.read(() => {
-        for (const row of this.db
-          .prepare(
-            'select id, text from transcript where media_id = ? and generation = ?',
-          )
-          .iterate(id, GENERATION.speech))
-          insert.run(row.id!, row.text!)
+        for (const [table, generation, source] of [
+          ['transcript', GENERATION.speech, 'speech'],
+          ['ocr', GENERATION.ocr, 'text'],
+        ] as const) {
+          for (const row of this.db
+            .prepare(
+              `select id, text from ${table} where media_id = ? and generation = ?`,
+            )
+            .iterate(id, generation))
+            insert.run(row.id!, source, row.text!)
+        }
       })
       db.exec('commit')
       this.videoFts = { mediaId: id, db }
@@ -431,9 +464,13 @@ export class SearchEngine {
     return new Map(
       (
         this.videoFts.db
-          .prepare('select rowid, rank from segment where segment match ?')
-          .all(ftsQuery(query)) as { rowid: number; rank: number }[]
-      ).map((row) => [row.rowid, -row.rank]),
+          .prepare('select id, source, rank from segment where segment match ?')
+          .all(ftsQuery(query)) as {
+          id: number
+          source: string
+          rank: number
+        }[]
+      ).map((row) => [`${row.source}:${row.id}`, -row.rank]),
     )
   }
 
@@ -474,17 +511,15 @@ export class SearchEngine {
         '',
         await Promise.all([
           this.vectorBranch(
-            this.visual,
+            [{ table: this.visual, source: 'visual' }],
             this.visual.queries(id),
             candidates,
-            'visual',
             false,
           ),
           this.vectorBranch(
-            this.speech,
+            [{ table: this.speech, source: 'speech' }],
             this.speech.queries(id),
             candidates,
-            'speech',
             false,
           ),
         ]),
@@ -520,32 +555,41 @@ export class SearchEngine {
   }
 
   private async vectorBranch(
-    table: Vectors,
+    sources: { table: Vectors; source: MatchSource }[],
     queries: Float32Array[],
     selected: Set<number>,
-    source: 'visual' | 'speech',
     gated = true,
   ) {
     const branch = new Map<string, Evidence>()
     if (!queries.length) return branch
-    const allowed = table.mask(selected)
-    const scores = new Map<number, number>()
-    // Similarity uses max across source samples, preserving short events rather than averaging them away.
-    for (const query of queries)
-      for (const hit of await this.scanner.scan(table, query, allowed))
-        scores.set(
-          hit.index,
-          Math.max(scores.get(hit.index) ?? -Infinity, hit.score),
-        )
-    const hits = [...scores]
-      .sort((a, b) => b[1] - a[1] || a[0] - b[0])
+    const scores: {
+      table: Vectors
+      source: MatchSource
+      index: number
+      score: number
+    }[] = []
+    for (const { table, source } of sources) {
+      const allowed = table.mask(selected)
+      const best = new Map<number, number>()
+      // Similarity pools max across source samples; speech and OCR share one sentence branch.
+      for (const query of queries)
+        for (const hit of await this.scanner.scan(table, query, allowed))
+          best.set(
+            hit.index,
+            Math.max(best.get(hit.index) ?? -Infinity, hit.score),
+          )
+      for (const [index, score] of best)
+        scores.push({ table, source, index, score })
+    }
+    const hits = scores
+      .sort((a, b) => b.score - a.score || a.index - b.index)
       .slice(0, 200)
     const cutoff = relevanceCutoff(
-      source,
-      hits[0]?.[1] ?? -Infinity,
+      sources[0]!.source,
+      hits[0]?.score ?? -Infinity,
       visualBand.global,
     )
-    for (const [index, score] of hits) {
+    for (const { table, source, index, score } of hits) {
       if (gated && score < cutoff) continue
       const mediaId = table.mediaIds[index]!
       let targets: Target[]
@@ -564,7 +608,7 @@ export class SearchEngine {
           target,
           source,
           source === 'visual' ? { score, ms: table.startMs[index]! } : null,
-          source === 'speech'
+          source !== 'visual'
             ? { startMs: table.startMs[index]!, text: table.text[index]! }
             : null,
         )
@@ -589,12 +633,22 @@ export class SearchEngine {
         query: match,
         generation: GENERATION.speech,
       }) as Lexical[]
+    const ocr = this.db
+      .prepare(`select t.media_id, t.t_ms as start_ms, t.t_ms as end_ms, t.text, ocr_fts.rank
+      from ocr_fts join ocr t on t.id = ocr_fts.rowid join media m on m.id = t.media_id
+      where ocr_fts match $query and t.generation = $generation and ${filter.where}
+      order by ocr_fts.rank limit 200`)
+      .all({
+        ...filter.params,
+        query: match,
+        generation: GENERATION.ocr,
+      }) as Lexical[]
     const files = this.db
       .prepare(`select f.media_id, null as start_ms, null as end_ms, null as text, file_fts.rank
       from file_fts join file f on f.id = file_fts.rowid join media m on m.id = f.media_id
       where file_fts match $query and ${filter.where} order by file_fts.rank limit 200`)
       .all({ ...filter.params, query: match }) as Lexical[]
-    for (const row of [...speech, ...files]
+    for (const row of [...speech, ...ocr, ...files]
       .sort((a, b) => a.rank - b.rank || a.media_id - b.media_id)
       .slice(0, 200)) {
       if (!selected.has(row.media_id)) continue
@@ -621,7 +675,10 @@ export class SearchEngine {
     const existing = branch.get(id)
     if (!existing)
       branch.set(id, { target, sources: new Set([source]), sample, segment })
-    else existing.segment ??= segment
+    else {
+      existing.sources.add(source)
+      existing.segment ??= segment
+    }
   }
 
   private result(

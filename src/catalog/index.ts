@@ -90,6 +90,7 @@ parent.on('message', ({ data, ports }) => {
       thumb: (p) => call('thumb', p),
       visual: (p) => call('visual', p),
       speech: (p) => call('speech', p),
+      ocr: (p) => call('ocr', p),
     })
     catalog.on('index', (state) => {
       if (renderer) emit(mainPort(renderer), 'index', state)

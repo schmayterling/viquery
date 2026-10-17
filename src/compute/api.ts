@@ -6,10 +6,12 @@ import {
   loadSentenceEncoder,
   loadSpeechEncoder,
 } from '../ml/index.ts'
+import { loadOcrEncoder } from '../ml/ocr.ts'
 import { dataPaths } from '../shared/paths.ts'
 import {
   type ComputeApi,
   GENERATION,
+  type OcrResult,
   type SpeechResult,
   type UtilityMessage,
 } from '../shared/protocol.ts'
@@ -47,6 +49,7 @@ export function createComputeApi(init: ComputeInit): ComputeApi {
   let imageEncoder: ReturnType<typeof loadImageEncoder> | undefined
   let speechEncoder: ReturnType<typeof loadSpeechEncoder> | undefined
   let sentenceEncoder: ReturnType<typeof loadSentenceEncoder> | undefined
+  let ocrEncoder: ReturnType<typeof loadOcrEncoder> | undefined
 
   return {
     async probe(p) {
@@ -121,6 +124,71 @@ export function createComputeApi(init: ComputeInit): ComputeApi {
           return { scene: sample.scene, tMs: frame.ms, embedding }
         }),
       }
+    },
+    async ocr(p) {
+      localPath(p.path)
+      if (!Number.isSafeInteger(p.mediaId) || p.mediaId < 1)
+        throw new Error('invalid media id')
+      if (p.kind !== 'image' && p.kind !== 'video')
+        throw new Error('invalid media kind')
+      if (
+        p.kind === 'video' &&
+        (!Array.isArray(p.frameMs) ||
+          !p.frameMs.every((ms) => Number.isSafeInteger(ms) && ms >= 0))
+      )
+        throw new Error('invalid OCR sample times')
+      ocrEncoder ??= loadOcrEncoder(init.modelsDir)
+      const recognize = await ocrEncoder
+      const spans: OcrResult['spans'] = []
+      const embeddings = new Map<string, Float32Array>()
+      const scan = async (
+        image: Awaited<ReturnType<typeof media.image>>,
+        tMs: number | null,
+      ) => {
+        const texts = await recognize(
+          image.data,
+          image.info.width,
+          image.info.height,
+        )
+        if (!texts.length) return
+        sentenceEncoder ??= loadSentenceEncoder(init.modelsDir)
+        const sentence = await sentenceEncoder
+        for (const text of texts) {
+          let embedding = embeddings.get(text)
+          if (!embedding) {
+            embedding = await sentence(text)
+            embeddings.set(text, embedding)
+          }
+          spans.push({ tMs, text, embedding })
+        }
+      }
+      if (p.kind === 'image') {
+        const image = await media.image(p.path)
+        await scan(
+          await sharp(image.data, { raw: image.info })
+            .resize(1600, 1600, { fit: 'inside', withoutEnlargement: true })
+            .raw()
+            .toBuffer({ resolveWithObject: true }),
+          null,
+        )
+      } else {
+        const seen = new Set<number>()
+        for (const ms of [...new Set(p.frameMs)].sort((a, b) => a - b)) {
+          const frame = await media.ocrFrame(p.path, ms)
+          if (seen.has(frame.ms)) continue
+          seen.add(frame.ms)
+          const spanCount = spans.length
+          await scan(frame, frame.ms)
+          if (spans.length === spanCount) continue
+          // OCR moments may seek to a keyframe absent from the visual sample set.
+          await mkdir(paths.frames(p.mediaId), { recursive: true })
+          await sharp(frame.data, { raw: frame.info })
+            .resize(320, 320, { fit: 'inside', withoutEnlargement: true })
+            .webp()
+            .toFile(paths.frame(p.mediaId, frame.ms))
+        }
+      }
+      return { generation: GENERATION.ocr, spans }
     },
     async speech(p) {
       localPath(p.path)

@@ -90,7 +90,7 @@ app.once('browser-window-created', (_event, win) => {
       })
       const jobs = db.prepare('select state from job').all()
       db.close()
-      assert.equal(jobs.length, 19)
+      assert.equal(jobs.length, 27)
       assert.ok(jobs.every((job) => job.state === 'done'))
       const items = await run(
         `window.viquery.library({scope:{kind:'all'},media:'all'}).then(i => window.viquery.items(Array.from(i.ids)))`,
@@ -234,7 +234,7 @@ app.once('browser-window-created', (_event, win) => {
       )
       assert.equal(reloaded, 8)
       console.info(
-        'core smoke passed: three utilities, nineteen jobs done, real search, thumb/sprite/frame, range/head, video seek, reload',
+        'core smoke passed: three utilities, twenty-seven jobs done, real search, thumb/sprite/frame, range/head, video seek, reload',
       )
       clearTimeout(timeout)
       app.quit()

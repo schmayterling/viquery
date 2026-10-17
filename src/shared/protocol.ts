@@ -4,7 +4,7 @@ import type { MediaId, MediaKind } from './api'
 
 // bump a generation when its model, preprocessing, or segmentation changes.
 // rows from older generations are ignored by search and re-enqueued by catalog.
-export const GENERATION = { visual: 1, speech: 1 } as const
+export const GENERATION = { visual: 1, speech: 1, ocr: 1 } as const
 
 export type Probe = {
   kind: MediaKind
@@ -38,6 +38,12 @@ export type SpeechResult = {
   }[]
 }
 
+// visible text read from an image (tMs null) or from video frames near sample times.
+export type OcrResult = {
+  generation: number
+  spans: { tMs: number | null; text: string; embedding: Float32Array }[]
+}
+
 // compute utility rpc methods. compute writes thumbnail/sprite/frame files itself
 // (paths from dataPaths in ./paths), returns everything else to catalog.
 export type ComputeApi = {
@@ -55,6 +61,13 @@ export type ComputeApi = {
     durationMs: number | null
   }): Promise<VisualResult>
   speech(p: { mediaId: MediaId; path: string }): Promise<SpeechResult>
+  // videos: read frames near frameMs (the visual sample times), not a full decode pass
+  ocr(
+    p: { mediaId: MediaId; path: string } & (
+      | { kind: 'image' }
+      | { kind: 'video'; frameMs: number[] }
+    ),
+  ): Promise<OcrResult>
 }
 
 // catalog -> search notification after each committed write batch.

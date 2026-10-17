@@ -18,6 +18,7 @@ import {
   type CatalogChange,
   type ComputeApi,
   GENERATION,
+  type OcrResult,
   type Probe,
   type SpeechResult,
   type Sprite,
@@ -83,13 +84,14 @@ type MediaRow = {
 type Work = {
   stage: Stage
   kind: number
-  phase: 'thumbnails' | 'images' | 'videos' | 'speech'
+  phase: 'thumbnails' | 'images' | 'videos' | 'speech' | 'text'
   limit: number
 }
 const phases: Work[] = [
   { stage: 'thumb', kind: -1, phase: 'thumbnails', limit: 2 },
   { stage: 'visual', kind: 0, phase: 'images', limit: 1 },
   { stage: 'visual', kind: 1, phase: 'videos', limit: 1 },
+  { stage: 'ocr', kind: -1, phase: 'text', limit: 1 },
   { stage: 'speech', kind: 1, phase: 'speech', limit: 1 },
 ]
 
@@ -175,12 +177,16 @@ export class Catalog extends EventEmitter<{
   }
 
   private enqueue(mediaId?: number): void {
-    for (const stage of ['thumb', 'visual', 'speech'] as const) {
+    for (const stage of ['thumb', 'visual', 'ocr', 'speech'] as const) {
       const condition =
         stage === 'thumb'
           ? '1'
           : "exists(select 1 from job t where t.media_id=m.id and t.stage='thumb' and t.state='done')" +
-            (stage === 'speech' ? ' and m.has_audio=1' : '')
+            (stage === 'speech' ? ' and m.has_audio=1' : '') +
+            (stage === 'ocr'
+              ? ` and exists(select 1 from job v where v.media_id=m.id
+              and v.stage='visual' and v.state='done' and v.generation=${GENERATION.visual})`
+              : '')
       this.stmt(`insert into job(media_id, stage, generation, state)
         select m.id, ?, ?, 'pending' from media m
         where exists(select 1 from file f where f.media_id=m.id) and ${condition} and ${mediaId === undefined ? '1' : 'm.id=?'}
@@ -547,6 +553,7 @@ export class Catalog extends EventEmitter<{
       let result:
         | { probe: Probe; sprite: Sprite | null }
         | VisualResult
+        | OcrResult
         | SpeechResult
       if (job.stage === 'thumb') {
         const probe = await this.compute.probe({ path: job.path })
@@ -567,6 +574,26 @@ export class Catalog extends EventEmitter<{
           durationMs: job.duration_ms,
         })
         validateVisual(result, job)
+      } else if (job.stage === 'ocr') {
+        result = await this.compute.ocr(
+          job.kind === 0
+            ? {
+                mediaId: job.media_id,
+                path: job.path,
+                kind: 'image',
+              }
+            : {
+                mediaId: job.media_id,
+                path: job.path,
+                kind: 'video',
+                frameMs: this.all<{ t_ms: number }>(
+                  'select distinct t_ms from sample where media_id=? and generation=? order by t_ms',
+                  job.media_id,
+                  GENERATION.visual,
+                ).map((sample) => sample.t_ms),
+              },
+        )
+        validateOcr(result, job)
       } else {
         result = await this.compute.speech({
           mediaId: job.media_id,
@@ -601,6 +628,7 @@ export class Catalog extends EventEmitter<{
             job.media_id,
           )
         } else if ('scenes' in result) this.writeVisual(job, result)
+        else if ('spans' in result) this.writeOcr(job, result)
         else this.writeSpeech(job, result)
         this.stmt(
           "update job set state='done',error=null where media_id=? and stage=? and generation=?",
@@ -636,6 +664,10 @@ export class Catalog extends EventEmitter<{
   }
 
   private writeVisual(job: Job, result: VisualResult): void {
+    this.stmt('delete from ocr where media_id=?').run(job.media_id)
+    this.stmt("delete from job where media_id=? and stage='ocr'").run(
+      job.media_id,
+    )
     this.stmt('delete from sample where media_id=?').run(job.media_id)
     this.stmt('delete from scene where media_id=?').run(job.media_id)
     const sceneIds = result.scenes.map((scene) =>
@@ -658,6 +690,21 @@ export class Catalog extends EventEmitter<{
         result.generation,
         sample.tMs,
         vectorBytes(sample.embedding),
+      )
+    }
+  }
+
+  private writeOcr(job: Job, result: OcrResult): void {
+    this.stmt('delete from ocr where media_id=?').run(job.media_id)
+    for (const span of result.spans) {
+      this.stmt(
+        'insert into ocr(media_id,generation,t_ms,text,embedding) values (?,?,?,?,?)',
+      ).run(
+        job.media_id,
+        result.generation,
+        span.tMs,
+        span.text,
+        vectorBytes(span.embedding),
       )
     }
   }
@@ -888,6 +935,29 @@ function validateVisual(result: VisualResult, job: Job): void {
     )
   ) {
     throw new Error('scene missing representative sample')
+  }
+}
+
+function validateOcr(result: OcrResult, job: Job): void {
+  if (
+    !result ||
+    result.generation !== job.generation ||
+    !Array.isArray(result.spans)
+  )
+    throw new Error('invalid OCR generation')
+  for (const span of result.spans) {
+    if (
+      !span ||
+      typeof span.text !== 'string' ||
+      !span.text.trim() ||
+      !validVector(span.embedding, 384) ||
+      (job.kind === 0
+        ? span.tMs !== null
+        : !Number.isSafeInteger(span.tMs) ||
+          !finite(span.tMs) ||
+          span.tMs >= (job.duration_ms as number))
+    )
+      throw new Error('invalid OCR span')
   }
 }
 

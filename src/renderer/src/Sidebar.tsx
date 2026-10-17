@@ -262,6 +262,7 @@ const PHASE = {
   images: 'Indexing images',
   videos: 'Indexing videos',
   speech: 'Indexing speech',
+  text: 'Indexing text',
 } as const
 
 // design §6.6. events are coalesced to at most 4 renders a second; the live region speaks every 10%.

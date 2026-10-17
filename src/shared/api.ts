@@ -78,7 +78,7 @@ export type Moment = {
   endMs: number
   seekMs: number // best matching frame time; also its thumbnail via mediaUrl.frame
   sources: MatchSource[]
-  snippet: string | null // matched transcript text, if speech matched
+  snippet: string | null // matched speech or visible text
 }
 
 export type VideoHit = { mediaId: MediaId; moments: Moment[] } // moments in rank order
@@ -103,7 +103,7 @@ export type IndexPhase =
   | { phase: 'idle'; items: number; failed: number } // failed: jobs out of retries
   | { phase: 'scanning'; found: number }
   | {
-      phase: 'thumbnails' | 'images' | 'videos' | 'speech'
+      phase: 'thumbnails' | 'images' | 'videos' | 'speech' | 'text'
       done: number
       total: number
       etaMs: number | null

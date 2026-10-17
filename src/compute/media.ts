@@ -299,6 +299,52 @@ export function mediaTools(binaries: Binaries) {
     }
   }
 
+  async function ocrFrame(path: string, ms: number) {
+    let frame: Frame | undefined
+    // FFmpeg 9 input seeking preserves the preceding keyframe instead of decoding to ms.
+    // copyts + start_at_zero keeps its PTS on the same timeline as visual samples.
+    // ponytail: text changes inside a GOP may be missed. upgrade: accurate seek when
+    // the keyframe falls more than one scene window before the requested sample.
+    // https://ffmpeg.org/ffmpeg.html#Main-options
+    const png = await ffmpeg(
+      [
+        '-v',
+        'info',
+        '-ss',
+        String(ms / 1000),
+        '-noaccurate_seek',
+        '-copyts',
+        '-start_at_zero',
+        '-i',
+        path,
+        '-map',
+        '0:v:0',
+        '-an',
+        '-vf',
+        `${scale(1280)},showinfo=checksum=0`,
+        '-frames:v',
+        '1',
+        '-fps_mode',
+        'passthrough',
+        '-f',
+        'image2pipe',
+        '-c:v',
+        'png',
+        'pipe:1',
+      ],
+      ptsReader((decoded) => {
+        frame ??= decoded
+      }),
+    )
+    if (!frame) throw new Error('OCR frame decoded without a timestamp')
+    const image = await sharp(png)
+      .removeAlpha()
+      .toColourspace('srgb')
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+    return { ...image, ms: frame.ms }
+  }
+
   async function poster(path: string, output: string) {
     await mkdir(dirname(output), { recursive: true })
     const png = await ffmpeg([
@@ -489,5 +535,5 @@ export function mediaTools(binaries: Binaries) {
       }))
   }
 
-  return { probe, image, poster, sprite, analyze, extract, audio }
+  return { probe, image, ocrFrame, poster, sprite, analyze, extract, audio }
 }

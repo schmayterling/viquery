@@ -93,6 +93,9 @@ test('catalog fixture: content identity, aliases, phased jobs, retries, resume a
             ],
           }
     },
+    async ocr() {
+      return { generation: GENERATION.ocr, spans: [] }
+    },
     async speech() {
       calls.push('speech')
       if (speechFails) throw new Error('speech model unavailable')
