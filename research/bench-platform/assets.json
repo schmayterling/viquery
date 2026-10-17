@@ -1,0 +1,951 @@
+{
+  "checked": "2026-10-17T09:20:48.013Z",
+  "note": "github asset bytes are compressed archive sizes except bare executable assets; npm sizes are full unpacked packages, not installed product sizes",
+  "releases": [
+    {
+      "repo": "electron/electron",
+      "tag": "v44.9.0",
+      "status": 200,
+      "url": "https://api.github.com/repos/electron/electron/releases/tags/v44.9.0",
+      "published": "2026-10-17T04:57:22Z",
+      "assets": [
+        {
+          "name": "electron-api.json",
+          "bytes": 2036496,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-api.json",
+          "digest": "sha256:47f60eb00dfceaf3672df6c45d08d5f466630fc4aeb11a44f6bff4f3685e1228"
+        },
+        {
+          "name": "electron-v44.9.0-darwin-arm64-dsym-snapshot.zip",
+          "bytes": 2096494,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-darwin-arm64-dsym-snapshot.zip",
+          "digest": "sha256:791ed32c004a35870e5ed4a4cf39bba86764a5c0e5342e0b1a5253b145847c7d"
+        },
+        {
+          "name": "electron-v44.9.0-darwin-arm64-dsym.tar.xz",
+          "bytes": 1476126584,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-darwin-arm64-dsym.tar.xz",
+          "digest": "sha256:a4be8d332c9bc7b15580f762b7349d371f8e1675c9b9c0b2811877f7a19e7968"
+        },
+        {
+          "name": "electron-v44.9.0-darwin-arm64.zip",
+          "bytes": 130738603,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-darwin-arm64.zip",
+          "digest": "sha256:12d873a5ae98a6598e730402e9278c5d132e97ea1a4405a7713bec2a3e83921f"
+        },
+        {
+          "name": "electron-v44.9.0-darwin-x64-dsym-snapshot.zip",
+          "bytes": 2096494,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-darwin-x64-dsym-snapshot.zip",
+          "digest": "sha256:791ed32c004a35870e5ed4a4cf39bba86764a5c0e5342e0b1a5253b145847c7d"
+        },
+        {
+          "name": "electron-v44.9.0-darwin-x64-dsym.tar.xz",
+          "bytes": 1394420140,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-darwin-x64-dsym.tar.xz",
+          "digest": "sha256:716e52797904541c26ed688fa5bb774e1d5f889e039d5d3f459767261fe1060b"
+        },
+        {
+          "name": "electron-v44.9.0-darwin-x64.zip",
+          "bytes": 134598451,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-darwin-x64.zip",
+          "digest": "sha256:fd9d60a1d6cbe98105c3cdd345f7dcca0961364650e6fbbf49d13e58b0f34786"
+        },
+        {
+          "name": "electron-v44.9.0-linux-arm64.zip",
+          "bytes": 124363194,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-linux-arm64.zip",
+          "digest": "sha256:37fe4dfc34a6dd35d65816864cc6ba9484565cda5ad6d29022e0ee3969e0ea15"
+        },
+        {
+          "name": "electron-v44.9.0-linux-x64.zip",
+          "bytes": 123314280,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-linux-x64.zip",
+          "digest": "sha256:ecced7ecb55697f92ca870939c5988557faa8acd8c222c232cae5913d318c8b9"
+        },
+        {
+          "name": "electron-v44.9.0-mas-arm64-dsym-snapshot.zip",
+          "bytes": 2096494,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-mas-arm64-dsym-snapshot.zip",
+          "digest": "sha256:791ed32c004a35870e5ed4a4cf39bba86764a5c0e5342e0b1a5253b145847c7d"
+        },
+        {
+          "name": "electron-v44.9.0-mas-arm64-dsym.tar.xz",
+          "bytes": 1339645452,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-mas-arm64-dsym.tar.xz",
+          "digest": "sha256:30abeffc1a732765a3843df98dd47dd29f9dcddd104f5117af877daeb62bea8d"
+        },
+        {
+          "name": "electron-v44.9.0-mas-arm64.zip",
+          "bytes": 129712652,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-mas-arm64.zip",
+          "digest": "sha256:0d42f985ee4b5065482761360fb869db2403c5f0418c2c5b318807e465c4bf0a"
+        },
+        {
+          "name": "electron-v44.9.0-mas-x64-dsym-snapshot.zip",
+          "bytes": 2096494,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-mas-x64-dsym-snapshot.zip",
+          "digest": "sha256:791ed32c004a35870e5ed4a4cf39bba86764a5c0e5342e0b1a5253b145847c7d"
+        },
+        {
+          "name": "electron-v44.9.0-mas-x64-dsym.tar.xz",
+          "bytes": 1253538556,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-mas-x64-dsym.tar.xz",
+          "digest": "sha256:04e9e50a059b16ce14cfcb6d1fdcc0c548562d32d9bc3b8986a09571d8c6b2d1"
+        },
+        {
+          "name": "electron-v44.9.0-mas-x64.zip",
+          "bytes": 133488035,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-mas-x64.zip",
+          "digest": "sha256:f2b9d5cfbfcb61818ab97836ac96c6451ff8fa35b5053e0f69dfd3c68cddbc78"
+        },
+        {
+          "name": "electron-v44.9.0-win32-arm64-toolchain-profile.zip",
+          "bytes": 79717,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-win32-arm64-toolchain-profile.zip",
+          "digest": "sha256:90386280bc7e4ac5d451e43e26a7c76ed1c8bcdc0206ec50762c7e4f09c59c28"
+        },
+        {
+          "name": "electron-v44.9.0-win32-arm64.zip",
+          "bytes": 156630587,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-win32-arm64.zip",
+          "digest": "sha256:4156e90faf61e2534f1c1cb10c8f05d38d199db8f788cc0c19f671a6ef881dce"
+        },
+        {
+          "name": "electron-v44.9.0-win32-x64-toolchain-profile.zip",
+          "bytes": 79717,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-win32-x64-toolchain-profile.zip",
+          "digest": "sha256:90386280bc7e4ac5d451e43e26a7c76ed1c8bcdc0206ec50762c7e4f09c59c28"
+        },
+        {
+          "name": "electron-v44.9.0-win32-x64.zip",
+          "bytes": 158625558,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron-v44.9.0-win32-x64.zip",
+          "digest": "sha256:88e08039d0ef359bab9f674e8051fa103bd8628ea7c5a5e1daaa610a8a0c6931"
+        },
+        {
+          "name": "electron.d.ts",
+          "bytes": 1164039,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/electron.d.ts",
+          "digest": "sha256:9f96ec8ad7f8a12f3b9934c0352f4592a019412f50336dc4020932b3ad4c590b"
+        },
+        {
+          "name": "ffmpeg-v44.9.0-darwin-arm64.zip",
+          "bytes": 606499,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/ffmpeg-v44.9.0-darwin-arm64.zip",
+          "digest": "sha256:2f21495c4d33ef132e66cbd345e679fbceb0131f46bdb88ea02cca178d27b551"
+        },
+        {
+          "name": "ffmpeg-v44.9.0-darwin-x64.zip",
+          "bytes": 636658,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/ffmpeg-v44.9.0-darwin-x64.zip",
+          "digest": "sha256:cf410a2ed1e2848ce20b2aa2e00f5e49bdea0e92644cc340c027ab785baea372"
+        },
+        {
+          "name": "ffmpeg-v44.9.0-linux-arm64.zip",
+          "bytes": 1469561,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/ffmpeg-v44.9.0-linux-arm64.zip",
+          "digest": "sha256:0a2c2075df7ec9527468467419428059102ec8f68c21641a7e760bfcf55f977c"
+        },
+        {
+          "name": "ffmpeg-v44.9.0-linux-x64.zip",
+          "bytes": 1508320,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/ffmpeg-v44.9.0-linux-x64.zip",
+          "digest": "sha256:f1ce628954333fc1461dc885d27ace577a38bb9620a7f1d25ace8fe9dfa36b15"
+        },
+        {
+          "name": "ffmpeg-v44.9.0-mas-arm64.zip",
+          "bytes": 606500,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/ffmpeg-v44.9.0-mas-arm64.zip",
+          "digest": "sha256:2fb3dadb8ee9d1b30ab0c3e55b157696565f79ef2d889c81879147e315b5422c"
+        },
+        {
+          "name": "ffmpeg-v44.9.0-mas-x64.zip",
+          "bytes": 636658,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/ffmpeg-v44.9.0-mas-x64.zip",
+          "digest": "sha256:09599487648f72001df5012b6148f9ee81d885e3a1e330c5827e5b3b3f18e271"
+        },
+        {
+          "name": "ffmpeg-v44.9.0-win32-arm64.zip",
+          "bytes": 712567,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/ffmpeg-v44.9.0-win32-arm64.zip",
+          "digest": "sha256:01053a8668535027f23582c1338eae4266319899b971492dbd5fef76dcccbecc"
+        },
+        {
+          "name": "ffmpeg-v44.9.0-win32-x64.zip",
+          "bytes": 779735,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/ffmpeg-v44.9.0-win32-x64.zip",
+          "digest": "sha256:e9f4e6f7df43ea56baa7064915870ef89892fc804d911097ab8e233385332f0a"
+        },
+        {
+          "name": "hunspell_dictionaries.zip",
+          "bytes": 34144908,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/hunspell_dictionaries.zip",
+          "digest": "sha256:41fc02332fc7cc2ea7230409de1bbe5d0a44b3a45b85f6d3acdaddd2b2047d8f"
+        },
+        {
+          "name": "libcxx-objects-v44.9.0-linux-arm64.zip",
+          "bytes": 5797717,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/libcxx-objects-v44.9.0-linux-arm64.zip",
+          "digest": "sha256:4e33fa6a7a1b0d14270437c285e972b2f5d6b229209a84834b512cb365cb9771"
+        },
+        {
+          "name": "libcxx-objects-v44.9.0-linux-x64.zip",
+          "bytes": 5751884,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/libcxx-objects-v44.9.0-linux-x64.zip",
+          "digest": "sha256:cb544903ebc6633ad964fc7b0452fa4ce3a7ec213f48718711244a5b7759de6a"
+        },
+        {
+          "name": "libcxxabi_headers.zip",
+          "bytes": 9615,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/libcxxabi_headers.zip",
+          "digest": "sha256:ff0571d69ffac9b7a1d4f31d0b7bddb0962cb578967f7777557a1adfb46abfa5"
+        },
+        {
+          "name": "libcxx_headers.zip",
+          "bytes": 2781612,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/libcxx_headers.zip",
+          "digest": "sha256:b8f13bf073a38a5fee3a208e98731181f2c641ef3b89df68730a25cf4f2ef94b"
+        },
+        {
+          "name": "SHASUMS256.txt",
+          "bytes": 6740,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/SHASUMS256.txt",
+          "digest": "sha256:f9485deeff752391c11c443e62f92eb03a25be39d899405264635c241d121767"
+        },
+        {
+          "name": "xcache-v44.9.0-darwin-arm64.zip",
+          "bytes": 17298780,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/xcache-v44.9.0-darwin-arm64.zip",
+          "digest": "sha256:86ce5f2a8fc497d2c8ed1b0eb838909544fddfbc6f3f99c978817cbf0efe099b"
+        },
+        {
+          "name": "xcache-v44.9.0-darwin-x64.zip",
+          "bytes": 18436222,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/xcache-v44.9.0-darwin-x64.zip",
+          "digest": "sha256:5ba99167b1644591d3a4b3b7401156c7aad0d61516fd7370ad7d6ade2ad0ad63"
+        },
+        {
+          "name": "xcache-v44.9.0-linux-arm64.zip",
+          "bytes": 17978281,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/xcache-v44.9.0-linux-arm64.zip",
+          "digest": "sha256:63c2b144dcb402e3d8d35c716c898dc3349749df837b9ad399abec314235cb7e"
+        },
+        {
+          "name": "xcache-v44.9.0-linux-x64.zip",
+          "bytes": 18465898,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/xcache-v44.9.0-linux-x64.zip",
+          "digest": "sha256:5d814222ffca0a66ac12e7a730b47df91fce2232f1023be1909a812553e208da"
+        },
+        {
+          "name": "xcache-v44.9.0-win32-arm64.zip",
+          "bytes": 19604396,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/xcache-v44.9.0-win32-arm64.zip",
+          "digest": "sha256:f8aac44751c9999dc1fb65260dd8e2a44a5b16186fb8b6fb3df5d833e498bde7"
+        },
+        {
+          "name": "xcache-v44.9.0-win32-x64.zip",
+          "bytes": 20744407,
+          "url": "https://github.com/electron/electron/releases/download/v44.9.0/xcache-v44.9.0-win32-x64.zip",
+          "digest": "sha256:b72ccc935966a7ccfdf3b319418f41abc2502b3a2cab9435b2656cf16041ce6e"
+        }
+      ]
+    },
+    {
+      "repo": "eugeneware/ffmpeg-static",
+      "tag": "b6.1.1",
+      "status": 200,
+      "url": "https://api.github.com/repos/eugeneware/ffmpeg-static/releases/tags/b6.1.1",
+      "published": "2025-11-14T20:35:00Z",
+      "assets": [
+        {
+          "name": "darwin-arm64.LICENSE",
+          "bytes": 4376,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/darwin-arm64.LICENSE",
+          "digest": "sha256:cb48bf09a11f5fb576cddb0431c8f5ed0a60157a9ec942adffc13907cbe083f2"
+        },
+        {
+          "name": "darwin-arm64.LICENSE.gz",
+          "bytes": 1802,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/darwin-arm64.LICENSE.gz",
+          "digest": "sha256:5995e6d7b7fdb371505351fce50b9d6fd4d051f69d3468ed4dd4cbfc14a5b916"
+        },
+        {
+          "name": "darwin-arm64.README",
+          "bytes": 1810,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/darwin-arm64.README",
+          "digest": "sha256:05ba4b92c96605434b1aaae3eedf5a2c280c9607bf78ffca9a5b536d9af2dc6a"
+        },
+        {
+          "name": "darwin-arm64.README.gz",
+          "bytes": 888,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/darwin-arm64.README.gz",
+          "digest": "sha256:527d4ea64a17e81a72ab57103b3817ee224261b5c07844d5a99af40758315154"
+        },
+        {
+          "name": "darwin-x64.LICENSE",
+          "bytes": 4346,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/darwin-x64.LICENSE",
+          "digest": "sha256:2e1d16c72fd74e12063776371da757322f8b77589386532f4fd8634bde7de1af"
+        },
+        {
+          "name": "darwin-x64.LICENSE.gz",
+          "bytes": 1788,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/darwin-x64.LICENSE.gz",
+          "digest": "sha256:07bfe0aa59feabb64665dde54683d4bcfa6901d1b9eb70219ee3d6ce5c5b51a2"
+        },
+        {
+          "name": "darwin-x64.README",
+          "bytes": 6227,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/darwin-x64.README",
+          "digest": "sha256:e88a0325f8e5b75210355e37341824f074d3cd82def2125be54c914b62848a36"
+        },
+        {
+          "name": "darwin-x64.README.gz",
+          "bytes": 1439,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/darwin-x64.README.gz",
+          "digest": "sha256:63f983e795802452bdb02bd77c27f3dded90a63eec20d1f3e47220823aa8d1b2"
+        },
+        {
+          "name": "ffmpeg-darwin-arm64",
+          "bytes": 45568216,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-arm64",
+          "digest": "sha256:a90e3db6a3fd35f6074b013f948b1aa45b31c6375489d39e572bea3f18336584"
+        },
+        {
+          "name": "ffmpeg-darwin-arm64.gz",
+          "bytes": 19246198,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-arm64.gz",
+          "digest": "sha256:8923876afa8db5585022d7860ec7e589af192f441c56793971276d450ed3bbfa"
+        },
+        {
+          "name": "ffmpeg-darwin-x64",
+          "bytes": 78862176,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-x64",
+          "digest": "sha256:ebdddc936f61e14049a2d4b549a412b8a40deeff6540e58a9f2a2da9e6b18894"
+        },
+        {
+          "name": "ffmpeg-darwin-x64.gz",
+          "bytes": 25296431,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-darwin-x64.gz",
+          "digest": "sha256:929b375c1182d956c51f7ac25e0b2b0411fb01f6f407aa15c9758efeb4242106"
+        },
+        {
+          "name": "ffmpeg-linux-arm",
+          "bytes": 31793580,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-arm",
+          "digest": "sha256:0afba4a11110e6e402053e0fc14c33a7eb207d7a588688ae87dba471a0f06c71"
+        },
+        {
+          "name": "ffmpeg-linux-arm.gz",
+          "bytes": 19167563,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-arm.gz",
+          "digest": "sha256:64b115a12f0ab77c277e3c418aae8b40ef881e75e746a0e2d066a206b9bc5172"
+        },
+        {
+          "name": "ffmpeg-linux-arm64",
+          "bytes": 51134160,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-arm64",
+          "digest": "sha256:6bb182d0d75d23028db82e9e4f723ca69b853d055698486e6984ddb2c06fb8ce"
+        },
+        {
+          "name": "ffmpeg-linux-arm64.gz",
+          "bytes": 25568691,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-arm64.gz",
+          "digest": "sha256:754a678672298bc68156adff58aa7385a592c2b30b1d0ae8750c45c915c4bac0"
+        },
+        {
+          "name": "ffmpeg-linux-ia32",
+          "bytes": 52155436,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-ia32",
+          "digest": "sha256:c6472eb993612db72ca50893a34137ba11173e60a1a4c028d4660a3f755d2490"
+        },
+        {
+          "name": "ffmpeg-linux-ia32.gz",
+          "bytes": 22184031,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-ia32.gz",
+          "digest": "sha256:169b27c078a8ecedb814cac67afccf15a9868d63e9d74ef86088adefaa500d00"
+        },
+        {
+          "name": "ffmpeg-linux-x64",
+          "bytes": 79826272,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-x64",
+          "digest": "sha256:e7e7fb30477f717e6f55f9180a70386c62677ef8a4d4d1a5d948f4098aa3eb99"
+        },
+        {
+          "name": "ffmpeg-linux-x64.gz",
+          "bytes": 29354986,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-linux-x64.gz",
+          "digest": "sha256:bfe8a8fc511530457b528c48d77b5737527b504a3797a9bc4866aeca69c2dffa"
+        },
+        {
+          "name": "ffmpeg-win32-x64",
+          "bytes": 82797568,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-win32-x64",
+          "digest": "sha256:04e1307997530f9cf2fe35cba2ca7e8875ca91da02f89d6c7243df819c94ad00"
+        },
+        {
+          "name": "ffmpeg-win32-x64.gz",
+          "bytes": 29581307,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffmpeg-win32-x64.gz",
+          "digest": "sha256:8883a3dffbd0a16cf4ef95206ea05283f78908dbfb118f73c83f4951dcc06d77"
+        },
+        {
+          "name": "ffprobe-darwin-arm64",
+          "bytes": 45528808,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-darwin-arm64",
+          "digest": "sha256:bb2db6f5d8cef919da12fbf592119a987202a8c060a886f3cab091f9cab90b64"
+        },
+        {
+          "name": "ffprobe-darwin-arm64.gz",
+          "bytes": 19207077,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-darwin-arm64.gz",
+          "digest": "sha256:d986a8ec7b030899fe66a8a288ed809a3543338705a3ce178cfb85869c5d80be"
+        },
+        {
+          "name": "ffprobe-darwin-x64",
+          "bytes": 78780408,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-darwin-x64",
+          "digest": "sha256:fa3add0ce901f7241abe0dfc0155d958fc834aca3f8ce61f87cc712ae669c1e0"
+        },
+        {
+          "name": "ffprobe-darwin-x64.gz",
+          "bytes": 25239438,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-darwin-x64.gz",
+          "digest": "sha256:d4da574d6e2e197bd259b47d69cf262df9e312af24ad960444f6d806d3d4c186"
+        },
+        {
+          "name": "ffprobe-linux-arm",
+          "bytes": 31671692,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-linux-arm",
+          "digest": "sha256:e61ef24870ddc3b80aa8b435512a545bd889e4ed4c2fc7c885f7d3dabad2a53f"
+        },
+        {
+          "name": "ffprobe-linux-arm.gz",
+          "bytes": 19084901,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-linux-arm.gz",
+          "digest": "sha256:2471169c19fea00018413eebf188703c19ae5ab614477465146d4cdc7458b55d"
+        },
+        {
+          "name": "ffprobe-linux-arm64",
+          "bytes": 50994160,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-linux-arm64",
+          "digest": "sha256:d17ae9b4c297d48e2521ba14e417bb0537c6ff77c584cdbcd6bb0d8d0307a2e8"
+        },
+        {
+          "name": "ffprobe-linux-arm64.gz",
+          "bytes": 25493573,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-linux-arm64.gz",
+          "digest": "sha256:2ab6aba60ee84412dff9188720703376cb4e7aaf7e0b5e43aa8249f2acae5bf8"
+        },
+        {
+          "name": "ffprobe-linux-ia32",
+          "bytes": 51955948,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-linux-ia32",
+          "digest": "sha256:a13b4cce0a4b9bd6714672e4df81076ec06f4c295d798162d48e3de68c781d6d"
+        },
+        {
+          "name": "ffprobe-linux-ia32.gz",
+          "bytes": 22093495,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-linux-ia32.gz",
+          "digest": "sha256:a75c55bcaad1b0e79f2201d82b9cc43903d950857615f91baaea5ce92d756e63"
+        },
+        {
+          "name": "ffprobe-linux-x64",
+          "bytes": 79665792,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-linux-x64",
+          "digest": "sha256:4f231a1960d83e403d08f7971e271707bec278a9ae18e21b8b5b03186668450d"
+        },
+        {
+          "name": "ffprobe-linux-x64.gz",
+          "bytes": 29276839,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-linux-x64.gz",
+          "digest": "sha256:25d9b6ccb05e3d9de9e04e31e2506d8dd7f9f0418981965ac6df12e8d3afd067"
+        },
+        {
+          "name": "ffprobe-win32-x64",
+          "bytes": 82668032,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-win32-x64",
+          "digest": "sha256:3a7e2dc003dc2cd1472827e4c7c4f056ae1ae0ae7c5bbc580c99b49827351ba4"
+        },
+        {
+          "name": "ffprobe-win32-x64.gz",
+          "bytes": 29521644,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/ffprobe-win32-x64.gz",
+          "digest": "sha256:f309e6223ad89d2fe54bccd420a7709b66fd27540674e92309578ed491a43c8d"
+        },
+        {
+          "name": "linux-arm.LICENSE",
+          "bytes": 35147,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-arm.LICENSE",
+          "digest": "sha256:8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+        },
+        {
+          "name": "linux-arm.LICENSE.gz",
+          "bytes": 12148,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-arm.LICENSE.gz",
+          "digest": "sha256:2bb5b2571616c41e3a5ec1cf4c889fde019e617f3763c8023ddee32b60ee6b7e"
+        },
+        {
+          "name": "linux-arm.README",
+          "bytes": 2178,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-arm.README",
+          "digest": "sha256:faaea83a6d92419cb112d5de5ac673f51b72401830e068c4d003b3229ee1c89a"
+        },
+        {
+          "name": "linux-arm.README.gz",
+          "bytes": 942,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-arm.README.gz",
+          "digest": "sha256:cf01cb837e26186e763da89c582281e6f327c9066d9569b59a32d8a204617a8e"
+        },
+        {
+          "name": "linux-arm64.LICENSE",
+          "bytes": 35147,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-arm64.LICENSE",
+          "digest": "sha256:8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+        },
+        {
+          "name": "linux-arm64.LICENSE.gz",
+          "bytes": 12150,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-arm64.LICENSE.gz",
+          "digest": "sha256:04dec67da0540177665f991e3f8f08ed1bc6b949c09ce644c37cd30082591b56"
+        },
+        {
+          "name": "linux-arm64.README",
+          "bytes": 2217,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-arm64.README",
+          "digest": "sha256:d6777d2fd276b23f0ac6666fa619e88ffe4826521881c7ff83836e30cb4acec2"
+        },
+        {
+          "name": "linux-arm64.README.gz",
+          "bytes": 974,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-arm64.README.gz",
+          "digest": "sha256:239f3669d1534a8260e867afc209b0f53fefcb9347bea8859920c074ae5a32bb"
+        },
+        {
+          "name": "linux-ia32.LICENSE",
+          "bytes": 35147,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-ia32.LICENSE",
+          "digest": "sha256:8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+        },
+        {
+          "name": "linux-ia32.LICENSE.gz",
+          "bytes": 12149,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-ia32.LICENSE.gz",
+          "digest": "sha256:33d79e0e4c1c6ae2fdcded3fa68ec4b8858a37f72d5d15187ecfe98feae5314d"
+        },
+        {
+          "name": "linux-ia32.README",
+          "bytes": 2209,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-ia32.README",
+          "digest": "sha256:3bbce64eba997007b3fd5324bb105f10ab6b0a499796c7d34b844b51fda0528b"
+        },
+        {
+          "name": "linux-ia32.README.gz",
+          "bytes": 973,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-ia32.README.gz",
+          "digest": "sha256:99155b4e6bb235d5860f208760c2c04e0b984231b2af4406c051a2b381d53fa5"
+        },
+        {
+          "name": "linux-x64.LICENSE",
+          "bytes": 35147,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-x64.LICENSE",
+          "digest": "sha256:8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+        },
+        {
+          "name": "linux-x64.LICENSE.gz",
+          "bytes": 12148,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-x64.LICENSE.gz",
+          "digest": "sha256:e6f01cb10f21032b80e78a1b0bd13d6c387d6f18eed9a37f99ea35d7e3f7bb7a"
+        },
+        {
+          "name": "linux-x64.README",
+          "bytes": 2235,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-x64.README",
+          "digest": "sha256:72f4b1b06d419d22ace6e7cc75f06826f90737345aa0b1736158929f4aacc537"
+        },
+        {
+          "name": "linux-x64.README.gz",
+          "bytes": 985,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/linux-x64.README.gz",
+          "digest": "sha256:ef9ccbfae3fccc2be1c0face637afb885edc2dfd13901e07ad8541ecc21bd76c"
+        },
+        {
+          "name": "win32-x64.LICENSE",
+          "bytes": 35147,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/win32-x64.LICENSE",
+          "digest": "sha256:8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
+        },
+        {
+          "name": "win32-x64.LICENSE.gz",
+          "bytes": 12148,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/win32-x64.LICENSE.gz",
+          "digest": "sha256:d751d40ef8ba97bf46964ae203bf88e7c0027b5459946ac758403c1bb032523f"
+        },
+        {
+          "name": "win32-x64.README",
+          "bytes": 39494,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/win32-x64.README",
+          "digest": "sha256:a636a7183c58006351acbaf35303c0ed85c6e1320fd4e80de453ba6157de6311"
+        },
+        {
+          "name": "win32-x64.README.gz",
+          "bytes": 9246,
+          "url": "https://github.com/eugeneware/ffmpeg-static/releases/download/b6.1.1/win32-x64.README.gz",
+          "digest": "sha256:9910569b1b42c01b91dd03b85abc8472a15b5aa31188e41e9654ae08cc179d07"
+        }
+      ]
+    },
+    {
+      "repo": "ente/ffmpeg-packaging",
+      "tag": "9.0.2",
+      "status": 200,
+      "url": "https://api.github.com/repos/ente/ffmpeg-packaging/releases/tags/9.0.2",
+      "published": "2026-10-08T11:59:01Z",
+      "assets": [
+        {
+          "name": "android-ffmpeg-runtime.aar",
+          "bytes": 24664700,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/android-ffmpeg-runtime.aar",
+          "digest": "sha256:9cd0d3c53bc81ddfb13076ce9ecb3a55f8cf772e7324d6dd7a02f19c2df043d6"
+        },
+        {
+          "name": "android-ffmpeg-runtime.aar.manifest.env",
+          "bytes": 467,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/android-ffmpeg-runtime.aar.manifest.env",
+          "digest": "sha256:0547618ab0a36eef021d7c2ebd7ef9d043563ae2107bd5459b1f1baa19dbd254"
+        },
+        {
+          "name": "android-ffmpeg-runtime.aar.sha256",
+          "bytes": 64,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/android-ffmpeg-runtime.aar.sha256",
+          "digest": "sha256:2ab38a98ede951137ca98c9c27990189e4561321ea828362055542bd9462b826"
+        },
+        {
+          "name": "darwin-universal-ffmpeg.tar.gz",
+          "bytes": 50083532,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/darwin-universal-ffmpeg.tar.gz",
+          "digest": "sha256:ba2f10d5433ae4b22f482ea2cee85d50819455e1e63b5aa1ecf6201ad2f2b7c9"
+        },
+        {
+          "name": "darwin-universal-ffmpeg.tar.gz.manifest.env",
+          "bytes": 567,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/darwin-universal-ffmpeg.tar.gz.manifest.env",
+          "digest": "sha256:5a56001c6f02ba75be150ae6a58c002fe8ae94fc2cd076207eb3874108454fa2"
+        },
+        {
+          "name": "darwin-universal-ffmpeg.tar.gz.sha256",
+          "bytes": 64,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/darwin-universal-ffmpeg.tar.gz.sha256",
+          "digest": "sha256:dd60566ff89e891e3873fbe0cd6b3a866ea996848596008502f63acf1b01bba1"
+        },
+        {
+          "name": "ffmpeg-wasm.tar.gz",
+          "bytes": 9496658,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/ffmpeg-wasm.tar.gz",
+          "digest": "sha256:22090d0b867e3be9634d888b1286beb59071c17aeba123d4e9987e52e1d6c28c"
+        },
+        {
+          "name": "ffmpeg-wasm.tar.gz.sha256",
+          "bytes": 85,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/ffmpeg-wasm.tar.gz.sha256",
+          "digest": "sha256:6bd17da709ece599ec9cc1587b228f7404e317ce6008a4c46c3b5865d4224152"
+        },
+        {
+          "name": "ios-FFmpegRuntime.xcframework.manifest.env",
+          "bytes": 474,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/ios-FFmpegRuntime.xcframework.manifest.env",
+          "digest": "sha256:0eb4b5e64f1cc90482555c803f03d08b79bec610e81b49a67df9ded9b1828252"
+        },
+        {
+          "name": "ios-FFmpegRuntime.xcframework.zip",
+          "bytes": 22904614,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/ios-FFmpegRuntime.xcframework.zip",
+          "digest": "sha256:2c3923ac301d3deea5df47ab86d5479c5a95cb09b90eae797910498afd554844"
+        },
+        {
+          "name": "ios-FFmpegRuntime.xcframework.zip.sha256",
+          "bytes": 64,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/ios-FFmpegRuntime.xcframework.zip.sha256",
+          "digest": "sha256:249b880b91093d4304acb9324375c6848919482e0dcd46f42b750f7566fd6409"
+        },
+        {
+          "name": "linux-arm64-ffmpeg.tar.gz",
+          "bytes": 27983690,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/linux-arm64-ffmpeg.tar.gz",
+          "digest": "sha256:00dd72f0f0ac4805d90b3c01a667909f04d6f821f90189791e1dea59cf8507ba"
+        },
+        {
+          "name": "linux-arm64-ffmpeg.tar.gz.manifest.env",
+          "bytes": 603,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/linux-arm64-ffmpeg.tar.gz.manifest.env",
+          "digest": "sha256:73f136ded94921fece826e38b82d07d1337d781aea4a0fcbc89f9aac1d8dfb9a"
+        },
+        {
+          "name": "linux-arm64-ffmpeg.tar.gz.sha256",
+          "bytes": 64,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/linux-arm64-ffmpeg.tar.gz.sha256",
+          "digest": "sha256:baba66f50cf6409fead86792b88b393ec9e9ac7e155d05b4da96ed5b2a88c044"
+        },
+        {
+          "name": "linux-x64-ffmpeg.tar.gz",
+          "bytes": 30413382,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/linux-x64-ffmpeg.tar.gz",
+          "digest": "sha256:7cf14c99d674d5f2ad2897f83f2b00307f66dba6c2f4fa854601a0521bc47886"
+        },
+        {
+          "name": "linux-x64-ffmpeg.tar.gz.manifest.env",
+          "bytes": 599,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/linux-x64-ffmpeg.tar.gz.manifest.env",
+          "digest": "sha256:c8c3a910b17565b8cd942ffba00cd811541842750475f3485da5bcd2fc483e00"
+        },
+        {
+          "name": "linux-x64-ffmpeg.tar.gz.sha256",
+          "bytes": 64,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/linux-x64-ffmpeg.tar.gz.sha256",
+          "digest": "sha256:b26352cea5851b06d2034012d985cfed277b82353d909f2ac689f4d7c737b33b"
+        },
+        {
+          "name": "windows-arm64-ffmpeg.zip",
+          "bytes": 23478275,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/windows-arm64-ffmpeg.zip",
+          "digest": "sha256:4f6df97fcd471adeac97079e271617e0fee322610faeca89f6590c323a5af654"
+        },
+        {
+          "name": "windows-arm64-ffmpeg.zip.manifest.env",
+          "bytes": 544,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/windows-arm64-ffmpeg.zip.manifest.env",
+          "digest": "sha256:3f7299ceb8c2837362ef6125f98555b878f18963955f1000d20c11bd8e38d6b9"
+        },
+        {
+          "name": "windows-arm64-ffmpeg.zip.sha256",
+          "bytes": 64,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/windows-arm64-ffmpeg.zip.sha256",
+          "digest": "sha256:0efbdf11e7060e336f5aa2df8cb3c1dc485ed669df5db1b88733657b07e919ba"
+        },
+        {
+          "name": "windows-x64-ffmpeg.zip",
+          "bytes": 29910801,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/windows-x64-ffmpeg.zip",
+          "digest": "sha256:0d772b1676871c480a8f140c45507c68e3077013d42792088c8db55f1611aba2"
+        },
+        {
+          "name": "windows-x64-ffmpeg.zip.manifest.env",
+          "bytes": 553,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/windows-x64-ffmpeg.zip.manifest.env",
+          "digest": "sha256:89fb31dcd6acaa0cccaf45d3d7621335de292bfea1be12041c420c8cf33d0e53"
+        },
+        {
+          "name": "windows-x64-ffmpeg.zip.sha256",
+          "bytes": 64,
+          "url": "https://github.com/ente/ffmpeg-packaging/releases/download/9.0.2/windows-x64-ffmpeg.zip.sha256",
+          "digest": "sha256:d2782b1f00bfc469ac123665bc2294e0a2d5f1303485b7a3a0acb94caaf0830d"
+        }
+      ]
+    },
+    {
+      "repo": "microsoft/onnxruntime",
+      "tag": "v1.30.0",
+      "status": 200,
+      "url": "https://api.github.com/repos/microsoft/onnxruntime/releases/tags/v1.30.0",
+      "published": "2026-09-10T16:55:55Z",
+      "assets": [
+        {
+          "name": "onnxruntime-linux-aarch64-1.30.0.tgz",
+          "bytes": 10269495,
+          "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-aarch64-1.30.0.tgz",
+          "digest": "sha256:e16a27a8ed330bbc698df7330b0cf56e722f354e3bcc92118682c74ef3c3e3da"
+        },
+        {
+          "name": "onnxruntime-linux-x64-1.30.0.tgz",
+          "bytes": 11306877,
+          "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-1.30.0.tgz",
+          "digest": "sha256:a5ed5a3cac51fbb2e90da632ae43d19212faaa20e76484e62bcb7c23ddb3b3fd"
+        },
+        {
+          "name": "onnxruntime-linux-x64-gpu_cuda12-1.30.0.tgz",
+          "bytes": 439354926,
+          "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-gpu_cuda12-1.30.0.tgz",
+          "digest": "sha256:f9886932ee7bb0b4d3fcab736a392d4ff5efaa0672b47f19f0cec03437cf64f1"
+        },
+        {
+          "name": "onnxruntime-linux-x64-gpu_cuda13-1.30.0.tgz",
+          "bytes": 235697517,
+          "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-linux-x64-gpu_cuda13-1.30.0.tgz",
+          "digest": "sha256:382d79133112388cf94ce5855789b7c9bef12bef76a08b6b277e5a317213adcd"
+        },
+        {
+          "name": "onnxruntime-osx-arm64-1.30.0.tgz",
+          "bytes": 42373116,
+          "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-osx-arm64-1.30.0.tgz",
+          "digest": "sha256:6ebb5062a934537c352937821f9fe9718e7de1a2db1122a93dd363ffd53a7012"
+        },
+        {
+          "name": "onnxruntime-win-arm64-1.30.0.zip",
+          "bytes": 83954906,
+          "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-arm64-1.30.0.zip",
+          "digest": "sha256:e53db8a50b23ae35be901cc93428baf997dc8d420333b097b2eae53d3ea9f2d3"
+        },
+        {
+          "name": "onnxruntime-win-arm64x-1.30.0.zip",
+          "bytes": 131128901,
+          "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-arm64x-1.30.0.zip",
+          "digest": "sha256:e46735a175b7b200de8e1b9ae5fe4aa689d6da6b3dc7de78b1077c8fec8e3654"
+        },
+        {
+          "name": "onnxruntime-win-x64-1.30.0.zip",
+          "bytes": 82645522,
+          "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-1.30.0.zip",
+          "digest": "sha256:c6ba983baf5681af108599675d2a89c2d145512d02de28aed0bff177cd0ba949"
+        },
+        {
+          "name": "onnxruntime-win-x64-gpu_cuda12-1.30.0.zip",
+          "bytes": 379723801,
+          "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-gpu_cuda12-1.30.0.zip",
+          "digest": "sha256:d4667ea48eb0a10bc9b96b838f7b8975a6bf18de3bc5edd403a22e15c1458b23"
+        },
+        {
+          "name": "onnxruntime-win-x64-gpu_cuda13-1.30.0.zip",
+          "bytes": 294386823,
+          "url": "https://github.com/microsoft/onnxruntime/releases/download/v1.30.0/onnxruntime-win-x64-gpu_cuda13-1.30.0.zip",
+          "digest": "sha256:8fa4b08359af682cd605892cb59077049700b640128bb93fd2c7776cf9f55bdc"
+        }
+      ]
+    },
+    {
+      "repo": "libvips/libvips",
+      "tag": "v8.18.7",
+      "status": 200,
+      "url": "https://api.github.com/repos/libvips/libvips/releases/tags/v8.18.7",
+      "published": "2026-09-26T11:31:21Z",
+      "assets": [
+        {
+          "name": "vips-8.18.7.tar.xz",
+          "bytes": 25425084,
+          "url": "https://github.com/libvips/libvips/releases/download/v8.18.7/vips-8.18.7.tar.xz",
+          "digest": "sha256:5baaead3b0bb20ffdb9e9ff09aa9fda08620923df77b63b436654cb5e0b3bf94"
+        },
+        {
+          "name": "vips-8.18.7.tar.xz.sha256sum",
+          "bytes": 85,
+          "url": "https://github.com/libvips/libvips/releases/download/v8.18.7/vips-8.18.7.tar.xz.sha256sum",
+          "digest": "sha256:33dbbfe566cbffbf72c71a5c263d3b45fd9dcd125a345e8393b8e77b8357a87d"
+        }
+      ]
+    }
+  ],
+  "packages": [
+    {
+      "name": "@img/sharp-darwin-arm64",
+      "status": 0,
+      "version": "0.35.5",
+      "dist.unpackedSize": 292231,
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "@img/sharp-darwin-x64",
+      "status": 0,
+      "version": "0.35.5",
+      "dist.unpackedSize": 267259,
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "@img/sharp-win32-x64",
+      "status": 0,
+      "version": "0.35.5",
+      "dist.unpackedSize": 19812379,
+      "license": "Apache-2.0 AND LGPL-3.0-or-later"
+    },
+    {
+      "name": "@img/sharp-linux-x64",
+      "status": 0,
+      "version": "0.35.5",
+      "dist.unpackedSize": 427138,
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "@img/sharp-linux-arm64",
+      "status": 0,
+      "version": "0.35.5",
+      "dist.unpackedSize": 542174,
+      "license": "Apache-2.0"
+    },
+    {
+      "name": "@img/sharp-libvips-darwin-arm64",
+      "status": 0,
+      "version": "1.3.4",
+      "dist.unpackedSize": 18243502,
+      "license": "LGPL-3.0-or-later"
+    },
+    {
+      "name": "@img/sharp-libvips-darwin-x64",
+      "status": 0,
+      "version": "1.3.4",
+      "dist.unpackedSize": 20381445,
+      "license": "LGPL-3.0-or-later"
+    },
+    {
+      "name": "@img/sharp-libvips-win32-x64",
+      "status": 0,
+      "version": "1.3.4",
+      "dist.unpackedSize": 19767909,
+      "license": "LGPL-3.0-or-later"
+    },
+    {
+      "name": "@img/sharp-libvips-linux-x64",
+      "status": 0,
+      "version": "1.3.4",
+      "dist.unpackedSize": 18711101,
+      "license": "LGPL-3.0-or-later"
+    },
+    {
+      "name": "@img/sharp-libvips-linux-arm64",
+      "status": 0,
+      "version": "1.3.4",
+      "dist.unpackedSize": 18336518,
+      "license": "LGPL-3.0-or-later"
+    },
+    {
+      "name": "@ffmpeg-installer/darwin-arm64",
+      "status": 0,
+      "version": "4.1.5",
+      "dist.unpackedSize": 36767761,
+      "license": "https://git.ffmpeg.org/gitweb/ffmpeg.git/blob_plain/HEAD:/LICENSE.md"
+    },
+    {
+      "name": "@ffmpeg-installer/darwin-x64",
+      "status": 0,
+      "version": "4.1.0",
+      "dist.unpackedSize": 70991058,
+      "license": "LGPL-2.1"
+    },
+    {
+      "name": "@ffmpeg-installer/win32-x64",
+      "status": 0,
+      "version": "4.1.0",
+      "dist.unpackedSize": 64459466,
+      "license": "GPLv3"
+    },
+    {
+      "name": "@ffmpeg-installer/linux-x64",
+      "status": 0,
+      "version": "4.1.0",
+      "dist.unpackedSize": 68175506,
+      "license": "GPLv3"
+    },
+    {
+      "name": "@ffmpeg-installer/linux-arm64",
+      "status": 0,
+      "version": "4.1.4",
+      "dist.unpackedSize": 32809101,
+      "license": "GPLv3"
+    },
+    {
+      "name": "chokidar@4.0.3",
+      "status": 0,
+      "version": "4.0.3",
+      "dist.unpackedSize": 148759,
+      "license": "MIT"
+    }
+  ]
+}

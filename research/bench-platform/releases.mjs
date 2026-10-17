@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
-const packages = ['electron','electron-vite','vite','typescript','react','react-dom','electron-builder','@electron/rebuild','better-sqlite3','sqlite-vec','@libsql/client','@libsql/hrana-client','usearch','hnswlib-node','@lancedb/lancedb','faiss-node','ffmpeg-static','ffprobe-static','@ffmpeg-installer/ffmpeg','ffbinaries','sharp','onnxruntime-node','@parcel/watcher','chokidar','blake3','hash-wasm'];
+const packages = ['node','electron','electron-vite','vite','typescript','react','react-dom','electron-builder','@electron/rebuild','better-sqlite3','sqlite-vec','@libsql/client','@libsql/hrana-client','usearch','hnswlib-node','@lancedb/lancedb','faiss-node','ffmpeg-static','ffprobe-static','@ffmpeg-installer/ffmpeg','ffbinaries','sharp','onnxruntime-node','@parcel/watcher','chokidar','blake3','hash-wasm'];
 const results = [];
 for (const name of packages) {
   const out = spawnSync('/opt/homebrew/bin/npm', ['view', name, 'version', 'dist-tags', 'engines', 'license', 'dist.unpackedSize', 'repository.url', '--json'], { encoding: 'utf8', timeout: 30000 });
