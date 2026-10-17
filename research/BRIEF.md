@@ -24,3 +24,7 @@ electron + electron-vite + typescript, react 19 renderer (matches local project 
 temporal: github.com/bobgsning/FrameScout, github.com/Aseiel/VideoHighlighter
 semantic: github.com/traversaal-ai/momentsearch, github.com/sourav4243/sift-video
 models (look beyond these): huggingface.co/collections/HuggingFaceTB/smolvlm2, moondream.ai/models, huggingface.co/apple/MobileCLIP-S0, huggingface.co/apple/MobileCLIP-S1
+
+## licensing (decided)
+- viquery code: MIT, open source, personal use.
+- default models must be redistributable under permissive terms (apache-2.0 / mit / bsd). no research-only weights (e.g. apple mobileclip LICENSE_MODELS) in the default path or bundled in the repo/app.
