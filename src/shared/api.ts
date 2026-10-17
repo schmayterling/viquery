@@ -108,6 +108,7 @@ export type SceneMatch = Moment & {
 export type ImageHit = { mediaId: MediaId }
 
 export type SearchResult = {
+  leading: MediaKind | null // section holding the strongest fused hit
   query: string
   images: ImageHit[] // rank order
   videos: VideoHit[] // rank order

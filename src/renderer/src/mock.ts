@@ -295,7 +295,7 @@ function search(
 ): SearchResult {
   const pending = { images: 0, videos: index.total - index.done }
   if (/giraffe|zz/i.test(query))
-    return { query, images: [], videos: [], pending, tookMs: 31 }
+    return { query, leading: null, images: [], videos: [], pending, tookMs: 31 }
   const r = rng(hash(query.toLowerCase()))
   const pool = select(filter)
   const pick = (kind: number, n: number) => {
@@ -336,7 +336,14 @@ function search(
   const images = pick(0, 6 + Math.floor(r() * 14)).map((mediaId) => ({
     mediaId,
   }))
-  return { query, images, videos, pending, tookMs: Math.round(30 + r() * 50) }
+  return {
+    query,
+    leading: videos.length ? 'video' : images.length ? 'image' : null,
+    images,
+    videos,
+    pending,
+    tookMs: Math.round(30 + r() * 50),
+  }
 }
 
 // ---- placeholder media: generated scenes, palettes after research/mockup.html ----

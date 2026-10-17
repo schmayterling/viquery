@@ -142,6 +142,14 @@ app.once('browser-window-created', (_event, win) => {
         "window.viquery.search('a cup of coffee', {scope:{kind:'all'},media:'all'})",
       )
       assert.equal(coffeeHits.images[0]?.mediaId, coffee.id)
+      assert.equal(coffeeHits.leading, 'image')
+      const unrelated = await run(
+        "window.viquery.search('purple giraffe', {scope:{kind:'all'},media:'all'})",
+      )
+      assert.deepEqual(
+        [unrelated.images.length, unrelated.videos.length, unrelated.leading],
+        [0, 0, null],
+      )
       const rocket = await run(
         `window.viquery.search('a rocket launching', {scope:{kind:'all'},media:'all'})`,
       )

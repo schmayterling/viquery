@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-17T10:40:39.612Z",
+  "date": "2026-10-17T12:06:06.475Z",
   "cpu": "Apple M2",
   "models": "Xenova/clip-vit-base-patch32 int8; Xenova/all-MiniLM-L6-v2 q8",
   "workload": "full 10x10 named-pair matrix + 8 unlabeled abstract queries; production compute.visual/text encoders; launch + generated bars/tone/silence from core-smoke",
@@ -88,6 +88,10 @@
     "max": 0.2457735513308495
   },
   "top1": 10,
+  "gated": {
+    "namedAccepted": 10,
+    "mismatchedAccepted": 0
+  },
   "rows": [
     {
       "query": "an astronaut in a spacesuit",
@@ -97,8 +101,13 @@
         0.19450234718120502, 0.18296584817904216, 0.20950936228923336,
         0.19666606513894588
       ],
-      "top": { "image": "astronaut.png", "score": 0.25975919467393116 },
-      "gap": 0.01912276540959082
+      "top": {
+        "image": "astronaut.png",
+        "score": 0.25975919467393116
+      },
+      "gap": 0.01912276540959082,
+      "cutoff": 0.24975919467393115,
+      "accepted": ["astronaut.png"]
     },
     {
       "query": "a cup of coffee on a wooden table",
@@ -108,8 +117,13 @@
         0.17422432995218634, 0.21601939143995327, 0.21671080085725822,
         0.22344230879176455
       ],
-      "top": { "image": "coffee.png", "score": 0.28870882515114427 },
-      "gap": 0.06526651635937972
+      "top": {
+        "image": "coffee.png",
+        "score": 0.28870882515114427
+      },
+      "gap": 0.06526651635937972,
+      "cutoff": 0.27870882515114426,
+      "accepted": ["coffee.png"]
     },
     {
       "query": "a close up photo of a cat",
@@ -119,8 +133,13 @@
         0.20528511064614297, 0.19789834023176137, 0.23136700491626921,
         0.21668043039868942
       ],
-      "top": { "image": "chelsea.png", "score": 0.29536491844828905 },
-      "gap": 0.06399791353201983
+      "top": {
+        "image": "chelsea.png",
+        "score": 0.29536491844828905
+      },
+      "gap": 0.06399791353201983,
+      "cutoff": 0.28536491844828904,
+      "accepted": ["chelsea.png"]
     },
     {
       "query": "a rocket launching at night",
@@ -130,8 +149,13 @@
         0.21571066829131114, 0.18205239947212357, 0.20188158012719065,
         0.19216507653793027
       ],
-      "top": { "image": "rocket.jpg", "score": 0.26901394563767794 },
-      "gap": 0.053303277346366806
+      "top": {
+        "image": "rocket.jpg",
+        "score": 0.26901394563767794
+      },
+      "gap": 0.053303277346366806,
+      "cutoff": 0.25901394563767793,
+      "accepted": ["rocket.jpg"]
     },
     {
       "query": "distant galaxies and stars in outer space",
@@ -141,8 +165,13 @@
         0.18821473127024363, 0.18276212261965202, 0.21339229040636196,
         0.2142818128329581
       ],
-      "top": { "image": "hubble_deep_field.jpg", "score": 0.3101754693911238 },
-      "gap": 0.09589365655816567
+      "top": {
+        "image": "hubble_deep_field.jpg",
+        "score": 0.3101754693911238
+      },
+      "gap": 0.09589365655816567,
+      "cutoff": 0.3001754693911238,
+      "accepted": ["hubble_deep_field.jpg"]
     },
     {
       "query": "a black and white silhouette of a horse",
@@ -152,8 +181,13 @@
         0.20798387564513682, 0.203814958587567, 0.2322158100359838,
         0.22767843053830195
       ],
-      "top": { "image": "horse.png", "score": 0.33538146201637076 },
-      "gap": 0.10316565198038696
+      "top": {
+        "image": "horse.png",
+        "score": 0.33538146201637076
+      },
+      "gap": 0.10316565198038696,
+      "cutoff": 0.32538146201637075,
+      "accepted": ["horse.png"]
     },
     {
       "query": "a person taking a photograph with a camera",
@@ -163,8 +197,13 @@
         0.27714449457191004, 0.18899554599068424, 0.22077960482150535,
         0.19456711590199388
       ],
-      "top": { "image": "camera.png", "score": 0.27714449457191004 },
-      "gap": 0.05176908720505949
+      "top": {
+        "image": "camera.png",
+        "score": 0.27714449457191004
+      },
+      "gap": 0.05176908720505949,
+      "cutoff": 0.26714449457191003,
+      "accepted": ["camera.png"]
     },
     {
       "query": "a brick wall",
@@ -174,8 +213,13 @@
         0.1814164637776653, 0.23506990479904122, 0.2254741235917346,
         0.21775799382921726
       ],
-      "top": { "image": "brick.png", "score": 0.23506990479904122 },
-      "gap": 0.009595781207306614
+      "top": {
+        "image": "brick.png",
+        "score": 0.23506990479904122
+      },
+      "gap": 0.009595781207306614,
+      "cutoff": 0.23,
+      "accepted": ["brick.png"]
     },
     {
       "query": "grass growing on the ground",
@@ -185,8 +229,13 @@
         0.196770238374826, 0.21457182530653082, 0.26998866796193827,
         0.22674404776868592
       ],
-      "top": { "image": "grass.png", "score": 0.26998866796193827 },
-      "gap": 0.04324462019325234
+      "top": {
+        "image": "grass.png",
+        "score": 0.26998866796193827
+      },
+      "gap": 0.04324462019325234,
+      "cutoff": 0.25998866796193826,
+      "accepted": ["grass.png"]
     },
     {
       "query": "a pile of rocks and gravel",
@@ -196,8 +245,13 @@
         0.15495519842734135, 0.20930929604716247, 0.2457735513308495,
         0.2563309357891724
       ],
-      "top": { "image": "gravel.png", "score": 0.2563309357891724 },
-      "gap": 0.010557384458322883
+      "top": {
+        "image": "gravel.png",
+        "score": 0.2563309357891724
+      },
+      "gap": 0.010557384458322883,
+      "cutoff": 0.24633093578917237,
+      "accepted": ["gravel.png"]
     },
     {
       "query": "a happy moment",
@@ -207,8 +261,13 @@
         0.19434127590815728, 0.17938681233520298, 0.20708423513883317,
         0.18110859681977823
       ],
-      "top": { "image": "coffee.png", "score": 0.2165013016389696 },
-      "gap": 0.0064012887703451815
+      "top": {
+        "image": "coffee.png",
+        "score": 0.2165013016389696
+      },
+      "gap": 0.0064012887703451815,
+      "cutoff": 0.23,
+      "accepted": []
     },
     {
       "query": "scenery at dusk",
@@ -218,8 +277,13 @@
         0.2113781783377034, 0.1993910567899433, 0.2143623836801993,
         0.18663388324099123
       ],
-      "top": { "image": "rocket.jpg", "score": 0.21837601161312717 },
-      "gap": 0.0008830390763565898
+      "top": {
+        "image": "rocket.jpg",
+        "score": 0.21837601161312717
+      },
+      "gap": 0.0008830390763565898,
+      "cutoff": 0.23,
+      "accepted": []
     },
     {
       "query": "a quiet place",
@@ -229,8 +293,13 @@
         0.1964198869461672, 0.19781554870531745, 0.2238713899767724,
         0.1889018689883899
       ],
-      "top": { "image": "hubble_deep_field.jpg", "score": 0.22903146178209927 },
-      "gap": 0.005160071805326877
+      "top": {
+        "image": "hubble_deep_field.jpg",
+        "score": 0.22903146178209927
+      },
+      "gap": 0.005160071805326877,
+      "cutoff": 0.23,
+      "accepted": []
     },
     {
       "query": "a warm drink",
@@ -240,8 +309,13 @@
         0.18020299425646846, 0.1897657642541319, 0.22533421969203368,
         0.2238212046942285
       ],
-      "top": { "image": "coffee.png", "score": 0.27522592094572906 },
-      "gap": 0.04989170125369538
+      "top": {
+        "image": "coffee.png",
+        "score": 0.27522592094572906
+      },
+      "gap": 0.04989170125369538,
+      "cutoff": 0.26522592094572905,
+      "accepted": ["coffee.png"]
     },
     {
       "query": "a journey into space",
@@ -251,8 +325,13 @@
         0.20740007835992125, 0.20533413595744127, 0.21969204697618078,
         0.19699985480483073
       ],
-      "top": { "image": "hubble_deep_field.jpg", "score": 0.2654144621507067 },
-      "gap": 0.021161642120343993
+      "top": {
+        "image": "hubble_deep_field.jpg",
+        "score": 0.2654144621507067
+      },
+      "gap": 0.021161642120343993,
+      "cutoff": 0.2554144621507067,
+      "accepted": ["hubble_deep_field.jpg"]
     },
     {
       "query": "natural textures",
@@ -262,8 +341,13 @@
         0.1752370617889199, 0.24698971327112507, 0.2670477669029875,
         0.24396583630346985
       ],
-      "top": { "image": "grass.png", "score": 0.2670477669029875 },
-      "gap": 0.020058053631862416
+      "top": {
+        "image": "grass.png",
+        "score": 0.2670477669029875
+      },
+      "gap": 0.020058053631862416,
+      "cutoff": 0.2570477669029875,
+      "accepted": ["grass.png"]
     },
     {
       "query": "a person outside",
@@ -273,8 +357,13 @@
         0.2118866859367461, 0.19505033747341874, 0.226055680897109,
         0.19753249605449646
       ],
-      "top": { "image": "horse.png", "score": 0.2270862809579079 },
-      "gap": 0.0010306000607988863
+      "top": {
+        "image": "horse.png",
+        "score": 0.2270862809579079
+      },
+      "gap": 0.0010306000607988863,
+      "cutoff": 0.23,
+      "accepted": []
     },
     {
       "query": "an animal resting",
@@ -284,8 +373,77 @@
         0.1727412681783184, 0.18443727206317442, 0.2145057809296264,
         0.1925667470796633
       ],
-      "top": { "image": "horse.png", "score": 0.24372080281383315 },
-      "gap": 0.016052078377283424
+      "top": {
+        "image": "horse.png",
+        "score": 0.24372080281383315
+      },
+      "gap": 0.016052078377283424,
+      "cutoff": 0.23372080281383315,
+      "accepted": ["horse.png"]
+    },
+    {
+      "query": "purple giraffe",
+      "scores": [
+        0.17904152469451004, 0.176973710998095, 0.20505630332322075,
+        0.17329595810645987, 0.19298006156768113, 0.24009644086698195,
+        0.15580584163557698, 0.18033411812061986, 0.21052934626961792,
+        0.18038951816049378
+      ],
+      "top": {
+        "image": "horse.png",
+        "score": 0.24009644086698195
+      },
+      "gap": 0.029567094597364035,
+      "cutoff": 0.23009644086698194,
+      "accepted": ["horse.png"]
+    },
+    {
+      "query": "an underwater wedding",
+      "scores": [
+        0.1625975906235093, 0.18108273987432771, 0.1735079674916024,
+        0.1594982012920401, 0.19717375219096864, 0.17172627745343588,
+        0.17437599607839624, 0.17107073444715531, 0.19478712646169133,
+        0.17749737544355443
+      ],
+      "top": {
+        "image": "hubble_deep_field.jpg",
+        "score": 0.19717375219096864
+      },
+      "gap": 0.0023866257292773085,
+      "cutoff": 0.23,
+      "accepted": []
+    },
+    {
+      "query": "a snowmobile in a blizzard",
+      "scores": [
+        0.18060909608508025, 0.19162839339473492, 0.18439974181313015,
+        0.19001476286656668, 0.1983617561240261, 0.19837354020245326,
+        0.16082534071561666, 0.17618338679669013, 0.22162427598581436,
+        0.19860673739660303
+      ],
+      "top": {
+        "image": "grass.png",
+        "score": 0.22162427598581436
+      },
+      "gap": 0.023017538589211323,
+      "cutoff": 0.23,
+      "accepted": []
+    },
+    {
+      "query": "a dragon juggling pancakes",
+      "scores": [
+        0.15973275907101495, 0.20265656773923782, 0.20780181386306704,
+        0.1698191223774106, 0.18747334454056352, 0.2122682254540962,
+        0.17995737948934704, 0.1828989330626713, 0.2052649466301683,
+        0.1986677175733653
+      ],
+      "top": {
+        "image": "horse.png",
+        "score": 0.2122682254540962
+      },
+      "gap": 0.0044664115910291735,
+      "cutoff": 0.23,
+      "accepted": []
     }
   ],
   "corpus": [
@@ -432,14 +590,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": 0.046861853612895216
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.2378174038215872
         }
       ]
     },
@@ -586,14 +736,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": 0.11540264295213706
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.1182418669269077
         }
       ]
     },
@@ -740,14 +882,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": 0.7614098970167267
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.10555318362382
         }
       ]
     },
@@ -894,14 +1028,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": 0.07066238557742133
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.2668338626128909
         }
       ]
     },
@@ -1048,14 +1174,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": 0.04223706257671263
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.20411484842774102
         }
       ]
     },
@@ -1202,14 +1320,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": 0.05726879005709041
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.250609207628921
         }
       ]
     },
@@ -1356,14 +1466,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": -0.025179463166380166
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.08081240234316076
         }
       ]
     },
@@ -1510,14 +1612,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": 0.049221000547579295
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.2833961078689412
         }
       ]
     },
@@ -1664,14 +1758,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": -0.009470384295105076
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.12928807300315268
         }
       ]
     },
@@ -1818,14 +1904,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": 0.051123155015246016
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.15063877015018187
         }
       ]
     },
@@ -1972,14 +2050,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": 0.020148290167946767
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.09935586135768354
         }
       ]
     },
@@ -2126,14 +2196,6 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": -0.01500772944997935
-        },
-        {
-          "signal": "transcript",
-          "name": "tone.mp4",
-          "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.06084952811852368
         }
       ]
     },
@@ -2280,14 +2342,590 @@
           "endMs": 11000,
           "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
           "cosine": -0.057676959647038145
+        }
+      ]
+    },
+    {
+      "query": "purple giraffe",
+      "signals": [
+        {
+          "signal": "sample",
+          "name": "coffee.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.16470770834701215
+        },
+        {
+          "signal": "sample",
+          "name": "cat-192.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.1937781544961374
+        },
+        {
+          "signal": "sample",
+          "name": "cat.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.20474634452223942
+        },
+        {
+          "signal": "sample",
+          "name": "cat-128.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.20127428373295794
+        },
+        {
+          "signal": "sample",
+          "name": "launch.mp4",
+          "sceneId": 1,
+          "tMs": 2733,
+          "cosine": 0.1804730696793001
+        },
+        {
+          "signal": "sample",
+          "name": "launch.mp4",
+          "sceneId": 2,
+          "tMs": 8267,
+          "cosine": 0.17903044437122395
+        },
+        {
+          "signal": "sample",
+          "name": "tone.mp4",
+          "sceneId": 3,
+          "tMs": 2000,
+          "cosine": 0.20370365181436084
+        },
+        {
+          "signal": "sample",
+          "name": "tone.mp4",
+          "sceneId": 4,
+          "tMs": 11000,
+          "cosine": 0.19572658021047434
+        },
+        {
+          "signal": "sample",
+          "name": "silence.mp4",
+          "sceneId": 5,
+          "tMs": 2000,
+          "cosine": 0.20370365181436084
+        },
+        {
+          "signal": "sample",
+          "name": "silence.mp4",
+          "sceneId": 6,
+          "tMs": 11000,
+          "cosine": 0.19572658021047434
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 7,
+          "tMs": 2000,
+          "cosine": 0.20370365181436084
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 8,
+          "tMs": 18000,
+          "cosine": 0.20466193564734486
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 9,
+          "tMs": 25000,
+          "cosine": 0.20389103821150967
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 10,
+          "tMs": 38000,
+          "cosine": 0.20036015612320357
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 11,
+          "tMs": 45000,
+          "cosine": 0.20363523914240736
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 12,
+          "tMs": 58000,
+          "cosine": 0.20813095312357005
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 13,
+          "tMs": 68000,
+          "cosine": 0.20209308796689857
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 14,
+          "tMs": 78000,
+          "cosine": 0.20735434254204357
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 15,
+          "tMs": 85000,
+          "cosine": 0.20111988783481732
         },
         {
           "signal": "transcript",
-          "name": "tone.mp4",
+          "name": "launch.mp4",
           "startMs": 0,
-          "endMs": 12000,
-          "text": "The",
-          "cosine": 0.09406275875929784
+          "endMs": 11000,
+          "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "cosine": 0.12232058326313547
+        }
+      ]
+    },
+    {
+      "query": "an underwater wedding",
+      "signals": [
+        {
+          "signal": "sample",
+          "name": "coffee.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.1838065311809733
+        },
+        {
+          "signal": "sample",
+          "name": "cat-192.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.1724863664076096
+        },
+        {
+          "signal": "sample",
+          "name": "cat.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.17551120836819742
+        },
+        {
+          "signal": "sample",
+          "name": "cat-128.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.184250460488092
+        },
+        {
+          "signal": "sample",
+          "name": "launch.mp4",
+          "sceneId": 1,
+          "tMs": 2733,
+          "cosine": 0.16479591520828443
+        },
+        {
+          "signal": "sample",
+          "name": "launch.mp4",
+          "sceneId": 2,
+          "tMs": 8267,
+          "cosine": 0.16880262790823694
+        },
+        {
+          "signal": "sample",
+          "name": "tone.mp4",
+          "sceneId": 3,
+          "tMs": 5000,
+          "cosine": 0.20734994996126035
+        },
+        {
+          "signal": "sample",
+          "name": "tone.mp4",
+          "sceneId": 4,
+          "tMs": 11000,
+          "cosine": 0.1941148047992085
+        },
+        {
+          "signal": "sample",
+          "name": "silence.mp4",
+          "sceneId": 5,
+          "tMs": 5000,
+          "cosine": 0.20734994996126035
+        },
+        {
+          "signal": "sample",
+          "name": "silence.mp4",
+          "sceneId": 6,
+          "tMs": 11000,
+          "cosine": 0.1941148047992085
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 7,
+          "tMs": 5000,
+          "cosine": 0.20734994996126035
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 8,
+          "tMs": 18000,
+          "cosine": 0.20511080629100037
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 9,
+          "tMs": 22000,
+          "cosine": 0.20842597939852023
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 10,
+          "tMs": 38000,
+          "cosine": 0.20133762053728305
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 11,
+          "tMs": 45000,
+          "cosine": 0.20169554747571228
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 12,
+          "tMs": 58000,
+          "cosine": 0.20748597477999345
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 13,
+          "tMs": 65000,
+          "cosine": 0.20252796532540518
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 14,
+          "tMs": 78000,
+          "cosine": 0.20329049575960106
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 15,
+          "tMs": 82000,
+          "cosine": 0.2055227627525225
+        },
+        {
+          "signal": "transcript",
+          "name": "launch.mp4",
+          "startMs": 0,
+          "endMs": 11000,
+          "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "cosine": -0.04027206308595467
+        }
+      ]
+    },
+    {
+      "query": "a snowmobile in a blizzard",
+      "signals": [
+        {
+          "signal": "sample",
+          "name": "coffee.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.18606249048866563
+        },
+        {
+          "signal": "sample",
+          "name": "cat-192.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.1814370008597824
+        },
+        {
+          "signal": "sample",
+          "name": "cat.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.17704803663964921
+        },
+        {
+          "signal": "sample",
+          "name": "cat-128.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.1881409562354923
+        },
+        {
+          "signal": "sample",
+          "name": "launch.mp4",
+          "sceneId": 1,
+          "tMs": 2733,
+          "cosine": 0.19396524375594065
+        },
+        {
+          "signal": "sample",
+          "name": "launch.mp4",
+          "sceneId": 2,
+          "tMs": 8267,
+          "cosine": 0.18256579510804435
+        },
+        {
+          "signal": "sample",
+          "name": "tone.mp4",
+          "sceneId": 3,
+          "tMs": 5000,
+          "cosine": 0.22244548950831283
+        },
+        {
+          "signal": "sample",
+          "name": "tone.mp4",
+          "sceneId": 4,
+          "tMs": 11000,
+          "cosine": 0.20628675457822993
+        },
+        {
+          "signal": "sample",
+          "name": "silence.mp4",
+          "sceneId": 5,
+          "tMs": 5000,
+          "cosine": 0.22244548950831283
+        },
+        {
+          "signal": "sample",
+          "name": "silence.mp4",
+          "sceneId": 6,
+          "tMs": 11000,
+          "cosine": 0.20628675457822993
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 7,
+          "tMs": 5000,
+          "cosine": 0.22244548950831283
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 8,
+          "tMs": 18000,
+          "cosine": 0.22070245410963202
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 9,
+          "tMs": 22000,
+          "cosine": 0.2242844721832345
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 10,
+          "tMs": 38000,
+          "cosine": 0.21705728743049318
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 11,
+          "tMs": 42000,
+          "cosine": 0.22433962202657076
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 12,
+          "tMs": 58000,
+          "cosine": 0.22469564471317685
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 13,
+          "tMs": 62000,
+          "cosine": 0.21934839867125766
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 14,
+          "tMs": 78000,
+          "cosine": 0.21738429890216668
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 15,
+          "tMs": 82000,
+          "cosine": 0.22567258187210795
+        },
+        {
+          "signal": "transcript",
+          "name": "launch.mp4",
+          "startMs": 0,
+          "endMs": 11000,
+          "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "cosine": 0.020459537673406147
+        }
+      ]
+    },
+    {
+      "query": "a dragon juggling pancakes",
+      "signals": [
+        {
+          "signal": "sample",
+          "name": "coffee.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.20758417404855364
+        },
+        {
+          "signal": "sample",
+          "name": "cat-192.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.20122867057334268
+        },
+        {
+          "signal": "sample",
+          "name": "cat.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.2067102498722452
+        },
+        {
+          "signal": "sample",
+          "name": "cat-128.jpg",
+          "sceneId": null,
+          "tMs": null,
+          "cosine": 0.20666746379681597
+        },
+        {
+          "signal": "sample",
+          "name": "launch.mp4",
+          "sceneId": 1,
+          "tMs": 2733,
+          "cosine": 0.1769790568629855
+        },
+        {
+          "signal": "sample",
+          "name": "launch.mp4",
+          "sceneId": 2,
+          "tMs": 8267,
+          "cosine": 0.17547387343509252
+        },
+        {
+          "signal": "sample",
+          "name": "tone.mp4",
+          "sceneId": 3,
+          "tMs": 5000,
+          "cosine": 0.22034530748351794
+        },
+        {
+          "signal": "sample",
+          "name": "tone.mp4",
+          "sceneId": 4,
+          "tMs": 11000,
+          "cosine": 0.20841046043165537
+        },
+        {
+          "signal": "sample",
+          "name": "silence.mp4",
+          "sceneId": 5,
+          "tMs": 5000,
+          "cosine": 0.22034530748351794
+        },
+        {
+          "signal": "sample",
+          "name": "silence.mp4",
+          "sceneId": 6,
+          "tMs": 11000,
+          "cosine": 0.20841046043165537
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 7,
+          "tMs": 5000,
+          "cosine": 0.22034530748351794
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 8,
+          "tMs": 18000,
+          "cosine": 0.21833693387842354
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 9,
+          "tMs": 25000,
+          "cosine": 0.22062547958012618
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 10,
+          "tMs": 38000,
+          "cosine": 0.21432210967767765
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 11,
+          "tMs": 45000,
+          "cosine": 0.2124360099676705
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 12,
+          "tMs": 58000,
+          "cosine": 0.22286858646285712
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 13,
+          "tMs": 65000,
+          "cosine": 0.21635645152940522
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 14,
+          "tMs": 78000,
+          "cosine": 0.2191756521450547
+        },
+        {
+          "signal": "sample",
+          "name": "bars.mp4",
+          "sceneId": 15,
+          "tMs": 85000,
+          "cosine": 0.21694309089262873
+        },
+        {
+          "signal": "transcript",
+          "name": "launch.mp4",
+          "startMs": 0,
+          "endMs": 11000,
+          "text": "And so my fellow Americans, ask not what your country can do for you, ask what you can do for your country.",
+          "cosine": 0.0749784898225449
         }
       ]
     }

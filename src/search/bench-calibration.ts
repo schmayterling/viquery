@@ -7,6 +7,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { binaries, dot } from '../../tests/compute-tools.ts'
 import { createComputeApi } from '../compute/api.ts'
 import { loadTextEncoders } from '../ml/text.ts'
+import { relevanceCutoff } from './engine.ts'
 
 // node --experimental-strip-types src/search/bench-calibration.ts /path/to/research/raw/images
 // Production decode, preprocessing and encoders; all models/data local. No downloads.
@@ -47,7 +48,17 @@ const abstractQueries = [
   'a person outside',
   'an animal resting',
 ]
-const queries = [...manifest.map((item) => item.query), ...abstractQueries]
+const unrelatedQueries = [
+  'purple giraffe',
+  'an underwater wedding',
+  'a snowmobile in a blizzard',
+  'a dragon juggling pancakes',
+]
+const queries = [
+  ...manifest.map((item) => item.query),
+  ...abstractQueries,
+  ...unrelatedQueries,
+]
 const rows = []
 for (const query of queries) {
   const encoded = await encoders.clip(query)
@@ -84,6 +95,7 @@ for (const query of [
   'a cat',
   'a cup of coffee',
   ...abstractQueries,
+  ...unrelatedQueries,
 ]) {
   const signals = []
   for (const [table, encode] of [
@@ -122,6 +134,19 @@ const correct = rows
   .slice(0, manifest.length)
   .filter((row, i) => row.ranked[0]!.image === manifest[i]!.file).length
 assert.equal(correct, manifest.length)
+const gated = rows.slice(0, manifest.length).map((row, i) => {
+  const cutoff = relevanceCutoff('visual', row.ranked[0]!.score)
+  return {
+    positive: row.scores[i]! >= cutoff,
+    negatives: row.scores.filter((score, j) => j !== i && score >= cutoff)
+      .length,
+  }
+})
+assert.ok(gated.every((row) => row.positive))
+assert.equal(
+  gated.reduce((n, row) => n + row.negatives, 0),
+  0,
+)
 console.log(
   JSON.stringify({
     date: new Date().toISOString(),
@@ -133,11 +158,19 @@ console.log(
     matching: summary(matching),
     nonMatching: summary(nonMatching),
     top1: correct,
+    gated: {
+      namedAccepted: gated.filter((r) => r.positive).length,
+      mismatchedAccepted: gated.reduce((n, r) => n + r.negatives, 0),
+    },
     rows: rows.map(({ query, scores, ranked }) => ({
       query,
       scores,
       top: ranked[0],
       gap: ranked[0]!.score - ranked[1]!.score,
+      cutoff: relevanceCutoff('visual', ranked[0]!.score),
+      accepted: ranked
+        .filter((r) => r.score >= relevanceCutoff('visual', ranked[0]!.score))
+        .map((r) => r.image),
     })),
     corpus,
   }),

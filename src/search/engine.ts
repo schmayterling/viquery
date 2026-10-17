@@ -49,10 +49,16 @@ const ocrSql = `select id, media_id, null as scene_id, t_ms as start_ms,
   coalesce(t_ms, 0) as end_ms, text, embedding from ocr where generation = ?`
 const sceneSql =
   'select id, media_id, start_ms, end_ms from scene where generation = ?'
-// bench-calibration-results.json: CLIP positives .235–.335, negatives .150–.246, abstract tops >= .216; wide retrieval band, marker band < .0077 launch gap; JFK .761 vs unrelated <= .284.
-const relevanceFloor = { visual: 0.2, speech: 0.45, text: 0.45 }
-const visualBand = { global: 0.08, timeline: 0.006 }
-const relevanceCutoff = (source: MatchSource, best: number, band: number) =>
+// Default CLIP pack: .23 floor + .01 retrieval band retain 10/10 named pairs,
+// admit 0/90 mismatched pairs, and reject purple giraffe on the fixture library.
+// Unlabeled abstract queries below the floor can be missed; recalibrate for a new model pack.
+const relevanceFloor = { visual: 0.23, speech: 0.45, text: 0.45 }
+const visualBand = { global: 0.01, timeline: 0.006 }
+export const relevanceCutoff = (
+  source: MatchSource,
+  best: number,
+  band = visualBand.global,
+) =>
   source === 'visual'
     ? Math.max(relevanceFloor.visual, best - band)
     : relevanceFloor[source]
@@ -296,7 +302,7 @@ export class SearchEngine {
     const encoded = text ? await this.encode(text) : null
     return this.snapshot(async () => {
       if (filter.media !== 'all')
-        return this.rank(query, text, encoded, filter, start)
+        return (await this.rank(query, text, encoded, filter, start)).result
       // relevance bands and candidate caps are per kind: a dense video must not crowd out
       // or out-score the photos an images tab would show for the same query.
       const [images, videos] = await Promise.all([
@@ -305,11 +311,15 @@ export class SearchEngine {
       ])
       return {
         query,
-        images: images.images,
-        videos: videos.videos,
+        leading:
+          images.score >= videos.score
+            ? images.result.leading
+            : videos.result.leading,
+        images: images.result.images,
+        videos: videos.result.videos,
         pending: {
-          images: images.pending.images,
-          videos: videos.pending.videos,
+          images: images.result.pending.images,
+          videos: videos.result.pending.videos,
         },
         tookMs: performance.now() - start,
       }
@@ -322,7 +332,7 @@ export class SearchEngine {
     encoded: [Float32Array, Float32Array] | null,
     filter: Filter,
     start: number,
-  ): Promise<SearchResult> {
+  ): Promise<{ result: SearchResult; score: number }> {
     const sqlFilter = filterSql(filter)
     const selected = this.selected(
       filter,
@@ -572,7 +582,7 @@ export class SearchEngine {
         ]),
         selected,
         start,
-      )
+      ).result
     })
   }
 
@@ -733,7 +743,7 @@ export class SearchEngine {
     branches: Map<string, Evidence>[],
     selected: Set<number>,
     start: number,
-  ): SearchResult {
+  ): { result: SearchResult; score: number } {
     const fused = new Map<string, Ranked>()
     for (const branch of branches) {
       let rank = 0
@@ -775,7 +785,21 @@ export class SearchEngine {
     for (const id of this.pending)
       if (selected.has(id))
         pending[this.media.get(id)!.kind === 0 ? 'images' : 'videos']++
-    return { query, images, videos, pending, tookMs: performance.now() - start }
+    return {
+      result: {
+        query,
+        leading: ranked[0]
+          ? ranked[0].target.scene
+            ? 'video'
+            : 'image'
+          : null,
+        images,
+        videos,
+        pending,
+        tookMs: performance.now() - start,
+      },
+      score: ranked[0]?.score ?? 0,
+    }
   }
 
   private moments(all: Ranked[]): Moment[] {

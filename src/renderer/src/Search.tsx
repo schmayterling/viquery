@@ -108,7 +108,15 @@ function appendResults(before: SearchResult, next: SearchResult): SearchResult {
       }
     }
   }
-  return { ...next, images, videos }
+  return {
+    ...next,
+    leading:
+      before.images.length || before.videos.length
+        ? before.leading
+        : next.leading,
+    images,
+    videos,
+  }
 }
 
 export function summary(r: SearchResult, media: Filter['media']) {
@@ -166,31 +174,42 @@ export function Results(props: {
   )
   const videoIds = videos.map((v) => v.mediaId)
 
+  const videoSection = videos.length > 0 && (
+    <MomentList
+      videos={videos}
+      folders={props.folders}
+      focusRequest={props.focusRequest}
+      onOpen={(i, mode, selected) =>
+        props.onOpen(videoIds, i, mode, moments, selected)
+      }
+    />
+  )
+  const imageSection = list.ids.length > 0 && (
+    <Grid
+      list={list}
+      groups={groups}
+      rowHeight={Math.round(props.rowHeight * 0.88)}
+      square={props.square}
+      scrollRef={props.scrollRef}
+      label="Matching images"
+      selection={props.selection}
+      onSelect={props.onSelect}
+      onOpen={(i, mode) => props.onOpen([...list.ids], i, mode)}
+      focusRequest={props.focusRequest}
+    />
+  )
   return (
     <div className="results" data-stale={props.stale || undefined}>
-      {videos.length > 0 && (
-        <MomentList
-          videos={videos}
-          folders={props.folders}
-          focusRequest={props.focusRequest}
-          onOpen={(i, mode, selected) =>
-            props.onOpen(videoIds, i, mode, moments, selected)
-          }
-        />
-      )}
-      {list.ids.length > 0 && (
-        <Grid
-          list={list}
-          groups={groups}
-          rowHeight={Math.round(props.rowHeight * 0.88)}
-          square={props.square}
-          scrollRef={props.scrollRef}
-          label="Matching images"
-          selection={props.selection}
-          onSelect={props.onSelect}
-          onOpen={(i, mode) => props.onOpen([...list.ids], i, mode)}
-          focusRequest={props.focusRequest}
-        />
+      {result.leading === 'image' ? (
+        <>
+          {imageSection}
+          {videoSection}
+        </>
+      ) : (
+        <>
+          {videoSection}
+          {imageSection}
+        </>
       )}
     </div>
   )
