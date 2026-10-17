@@ -76,3 +76,16 @@ export function connect(port: Port) {
 }
 
 export type Client = ReturnType<typeof connect>
+
+// electron MessagePortMain (main + utility processes)
+export const mainPort = (port: {
+  postMessage(message: unknown): void
+  on(event: 'message', listener: (e: { data: unknown }) => void): unknown
+  start(): void
+}): Port => ({
+  post: (message) => port.postMessage(message),
+  listen: (handler) => {
+    port.on('message', (e) => handler(e.data))
+    port.start()
+  },
+})

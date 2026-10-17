@@ -58,3 +58,22 @@ export type ComputeApi = {
 
 // catalog -> search notification after each committed write batch.
 export type CatalogChange = { removedMedia: MediaId[] }
+
+// main -> utility handshake over process.parentPort: one 'init', then one 'port'
+// message per peer with the MessagePortMain in event.ports[0].
+export type Peer = 'renderer' | 'catalog' | 'compute' | 'search'
+export type UtilityMessage =
+  | {
+      type: 'init'
+      dataDir: string // <userData>/library, layout in ./paths
+      modelsDir: string
+      ffmpeg: string
+      ffprobe: string
+    }
+  | { type: 'port'; peer: Peer }
+
+// query-time encoders, implemented in src/ml, used by the search utility.
+export type TextEncoders = {
+  clip(text: string): Promise<Float32Array> // same space as VisualResult samples
+  sentence(text: string): Promise<Float32Array> // same space as SpeechResult segments
+}
