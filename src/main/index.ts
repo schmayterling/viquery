@@ -301,7 +301,7 @@ function createWindow(): void {
   const win = new BrowserWindow({
     width: 1280,
     height: 820,
-    minWidth: 720,
+    minWidth: 640,
     minHeight: 480,
     show: false,
     titleBarStyle: mac ? 'hiddenInset' : 'hidden',

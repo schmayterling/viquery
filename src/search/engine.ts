@@ -552,12 +552,6 @@ export class SearchEngine {
         this.encoders.clip(text),
         this.encoders.sentence(text),
       ])
-      if (
-        encoded.some(
-          (v) => !(v instanceof Float32Array) || !v.every(Number.isFinite),
-        )
-      )
-        throw new Error('invalid query embedding')
     }
     this.queryVectors.set(text, encoded)
     if (this.queryVectors.size > 32)
