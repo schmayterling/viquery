@@ -54,6 +54,7 @@ create table media (
   width integer not null,           -- after orientation
   height integer not null,
   duration_ms integer,              -- videos
+  has_audio integer not null,       -- 0/1; speech stage only when 1
   taken_at integer not null,        -- exif/container time, else file mtime (epoch ms)
   bytes integer not null,
   codec text,

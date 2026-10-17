@@ -8,6 +8,10 @@
     "electron.vite.config.ts",
     "src/main/**/*.ts",
     "src/preload/**/*.ts",
+    "src/catalog/**/*.ts",
+    "src/compute/**/*.ts",
+    "src/ml/**/*.ts",
+    "src/search/**/*.ts",
     "src/shared/**/*.ts",
     "tests/**/*.ts"
   ]

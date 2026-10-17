@@ -11,6 +11,7 @@ export type Probe = {
   width: number // after orientation
   height: number
   durationMs: number | null
+  hasAudio: boolean // false for images
   takenAt: number | null // exif / container creation time, epoch ms
   codec: string | null
 }
