@@ -40,7 +40,8 @@ const revealLabel = () =>
 
 export function Viewer(props: Props) {
   const id = at(props.ids, props.index)
-  useItemsVersion()
+  const version = useItemsVersion()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version refetches items a library change marked stale
   useEffect(() => {
     // neighbours too, so arrowing is instant
     ensureItems(
@@ -48,7 +49,7 @@ export function Viewer(props: Props) {
         (x) => x !== undefined,
       ),
     )
-  }, [props.ids, props.index, id])
+  }, [props.ids, props.index, id, version])
   const item = getItem(id)
   const ref = useRef<HTMLDivElement>(null)
   // the video player takes keyboard focus itself (its shortcuts need it); otherwise the viewer

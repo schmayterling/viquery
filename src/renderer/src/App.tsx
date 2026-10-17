@@ -10,7 +10,7 @@ import type {
 import { at, count, num } from './format'
 import { Grid } from './Grid'
 import { type Dates, Header, yearDates } from './Header'
-import { clearItems } from './items'
+import { staleItems } from './items'
 import { monthGroups } from './layout'
 import { NoResults, type OpenHit, Results, summary, useSearch } from './Search'
 import { type Counts, type Place, Sidebar } from './Sidebar'
@@ -94,7 +94,7 @@ export function App() {
     let timer: ReturnType<typeof setTimeout> | undefined
     let again = false
     const bump = () => {
-      clearItems()
+      staleItems()
       setVersion((v) => v + 1)
       timer = setTimeout(() => {
         timer = undefined
