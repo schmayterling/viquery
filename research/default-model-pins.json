@@ -198,5 +198,40 @@
         "url": "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/751bff37182d3f1213fa05d7196b954e230abad9/vocab.txt"
       }
     ]
+  },
+  "snowfluke/ppu-paddle-ocr-models": {
+    "license": "Apache-2.0",
+    "weights": [
+      "PP-OCRv5_mobile_det_infer.onnx",
+      "PP-OCRv5_mobile_rec_infer.onnx"
+    ],
+    "license_source": "https://huggingface.co/PaddlePaddle/PP-OCRv5_mobile_rec",
+    "revision": "bf1d5edb0335d3262be7caf13f766ba274b4cadd",
+    "files": [
+      {
+        "file": "PP-OCRv5_mobile_det_infer.onnx",
+        "bytes": 4748769,
+        "sha256": "d7fe3ea74652890722c0f4d02458b7261d9f5ae6c92904d05707c9eb155c7924",
+        "url": "https://huggingface.co/snowfluke/ppu-paddle-ocr-models/resolve/bf1d5edb0335d3262be7caf13f766ba274b4cadd/detection/PP-OCRv5_mobile_det_infer.onnx"
+      },
+      {
+        "file": "PP-OCRv5_mobile_rec_infer.onnx",
+        "bytes": 16559278,
+        "sha256": "d253c3cbee6e507828a5271a30ab0ec8ae7c2a99d0cc8e6f844fe380809d22b3",
+        "url": "https://huggingface.co/snowfluke/ppu-paddle-ocr-models/resolve/bf1d5edb0335d3262be7caf13f766ba274b4cadd/recognition/PP-OCRv5_mobile_rec_infer.onnx"
+      },
+      {
+        "file": "ppocrv5_dict.txt",
+        "bytes": 74012,
+        "sha256": "d1979e9f794c464c0d2e0b70a7fe14dd978e9dc644c0e71f14158cdf8342af1b",
+        "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/a38c087bcb2579f9ccc2068aea02ec893b1c2311/ppocr/utils/dict/ppocrv5_dict.txt"
+      },
+      {
+        "file": "LICENSE",
+        "bytes": 11438,
+        "sha256": "ff6311c56c1b22c9209c96cc8afc16da91c24ee55a15e14ebc46fe1960dbd856",
+        "url": "https://raw.githubusercontent.com/PaddlePaddle/PaddleOCR/a38c087bcb2579f9ccc2068aea02ec893b1c2311/LICENSE"
+      }
+    ]
   }
 }
