@@ -290,7 +290,7 @@ export function Player(props: {
     if (!hover) return undefined
     if (hover.pin)
       return {
-        backgroundImage: `url("${mediaUrl.frame(id, hover.pin.seekMs)}")`,
+        backgroundImage: `url("${mediaUrl.frame(id, hover.pin.frameMs)}")`,
       }
     if (!sprite) return undefined
     const f = Math.min(
@@ -688,7 +688,7 @@ function Matches(props: {
             onClick={() => props.seek(m.startMs)}
           >
             <img
-              src={mediaUrl.frame(props.id, m.seekMs)}
+              src={mediaUrl.frame(props.id, m.frameMs)}
               alt=""
               loading="lazy"
               decoding="async"

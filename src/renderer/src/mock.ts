@@ -246,6 +246,7 @@ function sceneMatches(id: MediaId, query: string): SceneMatch[] {
       startMs: scene.startMs,
       endMs: scene.endMs,
       seekMs: scene.frameMs,
+      frameMs: scene.frameMs,
       sources: said ? ['visual', 'speech'] : ['visual'],
       snippet: said?.text ?? null,
       score,
@@ -320,6 +321,7 @@ function search(
           startMs: s.startMs,
           endMs: s.endMs,
           seekMs: s.frameMs,
+          frameMs: s.frameMs,
           sources: speech
             ? (['visual', 'speech'] as const).slice()
             : (['visual'] as const).slice(),

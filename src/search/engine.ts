@@ -347,13 +347,17 @@ export class SearchEngine {
               snippet: null,
               score: 0,
               match: false,
-            } as SceneMatch,
+            } as Omit<SceneMatch, 'frameMs'>,
             signals: [null, null, null] as (number | null)[],
             ocrMs: null as number | null,
           },
         ]),
       )
-      if (!encoded) return [...heat.values()].map((h) => h.moment)
+      if (!encoded)
+        return [...heat.values()].map(({ moment }) => ({
+          ...moment,
+          frameMs: this.frameMs(id, moment.seekMs),
+        }))
       const [clip, sentence] = encoded
       const visual = this.visual.ranked(id, clip)
       const cutoff = relevanceCutoff(
@@ -419,17 +423,31 @@ export class SearchEngine {
           (signals[2] ?? 0) / (lexicalMax || 1),
       )
       const max = Math.max(...scores)
-      return entries.map(({ moment, ocrMs }, index) => ({
-        ...moment,
-        seekMs:
+      return entries.map(({ moment, ocrMs }, index) => {
+        const seekMs =
           ocrMs ??
           (moment.sources.length && !moment.sources.includes('visual')
             ? moment.startMs
-            : moment.seekMs),
-        score: max > 0 ? scores[index]! / max : 0,
-        match: moment.sources.length > 0,
-      }))
+            : moment.seekMs)
+        return {
+          ...moment,
+          seekMs,
+          frameMs: this.frameMs(id, seekMs),
+          score: max > 0 ? scores[index]! / max : 0,
+          match: moment.sources.length > 0,
+        }
+      })
     })
+  }
+
+  // saved frame nearest a seek time: visual sample frames and ocr keyframes exist on disk,
+  // speech segment starts and scene starts generally do not.
+  private frameMs(mediaId: number, ms: number): number {
+    const frames = [
+      this.visual.nearest(mediaId, ms),
+      this.text.nearest(mediaId, ms),
+    ].filter((frame) => frame !== null)
+    return frames.sort((a, b) => Math.abs(a - ms) - Math.abs(b - ms))[0] ?? ms
   }
 
   private lexicalVideo(id: number, query: string): Map<string, number> {
@@ -778,6 +796,8 @@ export class SearchEngine {
           .sort((a, b) => b.score - a.score)
           .find((h) => h.segment)
         const representative = spoken ?? visual ?? best
+        const seekMs =
+          spoken?.segment?.startMs ?? visual?.sample?.ms ?? group.start
         const sources = new Set(group.hits.flatMap((h) => [...h.sources]))
         return {
           score: best.score,
@@ -785,8 +805,8 @@ export class SearchEngine {
             sceneId: representative.target.scene!.id,
             startMs: group.start,
             endMs: group.end,
-            seekMs:
-              spoken?.segment?.startMs ?? visual?.sample?.ms ?? group.start,
+            seekMs,
+            frameMs: this.frameMs(representative.target.mediaId, seekMs),
             sources: [...sources],
             snippet: spoken?.segment?.text ?? null,
           },

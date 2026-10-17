@@ -213,6 +213,7 @@ test('video rpc returns ordered heat, gated markers and speech-only scenes using
     startMs: 7000,
     endMs: 9000,
     seekMs: 7000,
+    frameMs: 6000, // no frame at the speech scene start: nearest saved sample
     score: 1,
     match: true,
     sources: ['speech', 'text'],
@@ -293,6 +294,7 @@ test('search utility fuses branches, merges moments, filters, and refreshes rewr
     startMs: 0,
     endMs: 3500,
     seekMs: 800,
+    frameMs: 500,
     sources: ['visual', 'text', 'speech'],
     snippet: 'needle in haystack',
   })

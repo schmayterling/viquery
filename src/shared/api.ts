@@ -76,7 +76,8 @@ export type Moment = {
   sceneId: SceneId
   startMs: number
   endMs: number
-  seekMs: number // best matching frame time; also its thumbnail via mediaUrl.frame
+  seekMs: number // playback position: best visual frame, speech segment start, or ocr frame pts
+  frameMs: number // preview frame saved on disk (visual sample or ocr keyframe), via mediaUrl.frame
   sources: MatchSource[]
   snippet: string | null // matched speech or visible text
 }

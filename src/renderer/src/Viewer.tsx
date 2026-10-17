@@ -192,7 +192,7 @@ export function Viewer(props: Props) {
               start={moments?.[0] ? Math.max(0, moments[0].startMs - 1000) : 0}
               poster={
                 moments?.[0]
-                  ? mediaUrl.frame(id, moments[0].seekMs)
+                  ? mediaUrl.frame(id, moments[0].frameMs)
                   : mediaUrl.thumb(id)
               }
               missing={<Missing item={item} folder={folder} />}
