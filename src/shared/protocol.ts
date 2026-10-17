@@ -58,7 +58,9 @@ export type ComputeApi = {
 }
 
 // catalog -> search notification after each committed write batch.
-export type CatalogChange = { removedMedia: MediaId[] }
+// search drops its in-memory rows for both sets and reloads changedMedia by media_id
+// (no id watermark: rowids can be reused and rewritten media keep their media id).
+export type CatalogChange = { changedMedia: MediaId[]; removedMedia: MediaId[] }
 
 // main -> utility handshake over process.parentPort: one 'init', then one 'port'
 // message per peer with the MessagePortMain in event.ports[0].
