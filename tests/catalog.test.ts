@@ -4,6 +4,7 @@ import {
   cp,
   mkdir,
   mkdtemp,
+  open,
   readFile,
   rename,
   rm,
@@ -297,4 +298,31 @@ test('catalog fixture: content identity, aliases, phased jobs, retries, resume a
       .get()?.n,
     1,
   )
+})
+
+test('catalog folder boundaries: sampled identity, nested folders, missing roots', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'viquery-boundary-'))
+  const catalog = new Catalog(join(root, 'data'), {} as ComputeApi)
+  t.after(async () => {
+    await catalog.close()
+    await rm(root, { recursive: true, force: true })
+  })
+  catalog.pauseIndexing(true)
+
+  // same size and identical sampled windows, different bytes at 8 MiB
+  const large = join(root, 'large')
+  await mkdir(large)
+  for (const [name, patch] of [
+    ['a.bmp', false],
+    ['b.bmp', true],
+    ['c.bmp', false],
+  ] as const) {
+    const file = await open(join(large, name), 'w')
+    await file.truncate(75 * 1024 * 1024)
+    if (patch) await file.write(Buffer.alloc(1024, 255), 0, 1024, 8 << 20)
+    await file.close()
+  }
+  await catalog.addFolder(large)
+  // a and c are true duplicates; b must not merge into them
+  assert.equal(catalog.library(all).ids.length, 2)
 })

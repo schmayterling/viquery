@@ -98,15 +98,18 @@ const phases: Work[] = [
 const SAMPLED_ABOVE = 64 * 1024 * 1024
 const WINDOW = 4 * 1024 * 1024
 
-// ponytail: files over 64 MiB are identified by size + head/middle/tail 4 MiB windows, not a full read;
-// a full sha256 of a 96 GB remux stalled the scan for minutes. ceiling: two same-size files differing
-// only outside those windows share one identity. upgrade: full hash in a background pass after thumbnails.
-async function contentHash(path: string, size: number): Promise<Buffer> {
+async function fullHash(path: string): Promise<Buffer> {
   const hash = createHash('sha256')
-  if (size <= SAMPLED_ABOVE) {
-    for await (const chunk of createReadStream(path)) hash.update(chunk)
-    return hash.digest()
-  }
+  for await (const chunk of createReadStream(path)) hash.update(chunk)
+  return hash.digest()
+}
+
+// files over 64 MiB are keyed by size + head/middle/tail 4 MiB windows, not a full read;
+// a full sha256 of a 96 GB remux stalled the scan for minutes. a sampled match is only
+// trusted after a full-hash comparison against a present alias (see Catalog.confirmSampled).
+async function contentHash(path: string, size: number): Promise<Buffer> {
+  if (size <= SAMPLED_ABOVE) return fullHash(path)
+  const hash = createHash('sha256')
   hash.update(`sampled:${size}:`)
   const file = await open(path)
   try {
@@ -418,7 +421,9 @@ export class Catalog extends EventEmitter<{
         const old = byPath.get(path)
         if (old?.size === before.size && old.mtime_ms === before.mtimeMs)
           continue
-        const digest = await contentHash(path, before.size)
+        let digest = await contentHash(path, before.size)
+        if (before.size > SAMPLED_ABOVE)
+          digest = await this.confirmSampled(digest, path)
         const after = await stat(path)
         if (!sameFile(before, after)) continue
         const mediaId = transaction(this.db, () => {
@@ -467,6 +472,30 @@ export class Catalog extends EventEmitter<{
         )
     })
     if (vanished.length) this.notify(vanished.map((file) => file.media_id))
+  }
+
+  // a sampled key shared with another unchanged alias is confirmed by hashing both files fully;
+  // different content is keyed by its full sha256 instead. renames/moves (no other alias still
+  // present) keep the sampled match without a full read.
+  // ponytail: a distinct file whose sampled twin is gone (moved away or deleted) inherits its identity.
+  // upgrade: persist full hashes per media and compare when a sampled match has no present alias.
+  private async confirmSampled(digest: Buffer, path: string): Promise<Buffer> {
+    const aliases = this.all<FileRow>(
+      `select f.path,f.size,f.mtime_ms from file f join media m on m.id=f.media_id
+      where m.sha256=? and f.path!=?`,
+      digest,
+      path,
+    )
+    for (const alias of aliases) {
+      const info = await stat(alias.path).catch(() => null)
+      if (info?.size !== alias.size || info.mtimeMs !== alias.mtime_ms) continue
+      const [mine, theirs] = await Promise.all([
+        fullHash(path),
+        fullHash(alias.path),
+      ])
+      return mine.equals(theirs) ? digest : mine
+    }
+    return digest
   }
 
   private notify(ids: number[]): void {
