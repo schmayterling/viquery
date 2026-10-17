@@ -6,6 +6,8 @@ cross-platform (macos, windows, linux) desktop app. local media gallery of image
 - images: semantic search by what is happening, objects, scenery, natural language.
 - videos: same, plus temporal: find the specific scene/moment (timestamped) by objects, scenery, what happened, natural language.
 
+- speech: transcribe video audio (multilingual; english first) and use timestamped transcript segments as extra search signal mapped onto scenes.
+
 ## performance
 - must work well cpu-only (baseline dev box: apple m2, 8 cores, 24gb; also assume ~4-core x86 laptop no gpu).
 - gpu optional speedup (coreml/metal, directml, cuda, webgpu).
