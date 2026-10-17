@@ -18,16 +18,28 @@ type Stream = {
   width?: number
   height?: number
   duration?: string
+  start_time?: string
   tags?: Record<string, string>
   side_data_list?: { rotation?: number }[]
   disposition?: { attached_pic?: number }
 }
 type Container = {
   streams: Stream[]
-  format: { duration?: string; tags?: Record<string, string> }
+  format: {
+    duration?: string
+    start_time?: string
+    tags?: Record<string, string>
+  }
 }
 
 sharp.concurrency(THREADS.sharp)
+
+const AUDIO_WINDOW_S = 300 // 19 MB of 16 kHz f32 pcm per window
+
+function seconds(value: string | undefined, fallback: number): number {
+  const parsed = Number(value)
+  return value !== undefined && Number.isFinite(parsed) ? parsed : fallback
+}
 
 async function run(
   binary: string,
@@ -56,6 +68,17 @@ async function run(
   ])
   return Buffer.concat(output)
 }
+
+// every input is one local media file. playlists (hls, dash), concat scripts and other
+// reference formats would open files outside the library folders, so only real containers
+// and image demuxers may be used, and only the file protocol.
+// https://ffmpeg.org/ffmpeg-formats.html#Format-Options (format_whitelist, protocol_whitelist)
+const INPUT = [
+  '-protocol_whitelist',
+  'file',
+  '-format_whitelist',
+  'mov,matroska,avi,mpegts,mpeg,mpegvideo,ogg,image2,jpeg_pipe,png_pipe,webp_pipe,gif,gif_pipe,bmp_pipe,tiff_pipe',
+]
 
 const scale = (edge: number) =>
   `scale=w='min(${edge},iw)':h='min(${edge},ih)':force_original_aspect_ratio=decrease`
@@ -148,19 +171,34 @@ function windows(cuts: { ms: number; score: number }[], durationMs: number) {
   return scenes
 }
 
-export function sampleFrames({ frames, scenes }: Analysis) {
+export function sampleFrames({
+  frames,
+  scenes,
+}: Analysis): (Frame & { scene: number; heldAt?: number })[] {
   if (!frames.length) throw new Error('video decoded no frames')
+  // index of the first frame at or after ms
+  const seek = (ms: number) => {
+    let low = 0
+    let high = frames.length
+    while (low < high) {
+      const mid = (low + high) >>> 1
+      if ((frames[mid] as Frame).ms < ms) low = mid + 1
+      else high = mid
+    }
+    return low
+  }
   return scenes.flatMap((scene, index) => {
+    const first = seek(scene.startMs)
+    if ((frames[first]?.ms ?? Number.POSITIVE_INFINITY) >= scene.endMs) {
+      // no frame starts in this window (long frame hold): the held frame is what plays
+      // here, so sample it once at the window start.
+      const held = frames[Math.max(0, first - 1)] as Frame
+      return [{ scene: index, ...held, heldAt: scene.startMs }]
+    }
     const length = scene.endMs - scene.startMs
     return (length <= 2000 ? [0.5] : [0.2, 0.5, 0.8]).map((fraction) => {
       const target = scene.startMs + length * fraction
-      let low = 0
-      let high = frames.length
-      while (low < high) {
-        const mid = (low + high) >>> 1
-        if ((frames[mid] as Frame).ms < target) low = mid + 1
-        else high = mid
-      }
+      const low = seek(target)
       const before = frames[Math.max(0, low - 1)] as Frame
       const after = frames[Math.min(low, frames.length - 1)] as Frame
       // Keep cut-adjacent samples in their own shot whenever a frame exists there.
@@ -194,8 +232,7 @@ export function mediaTools(binaries: Binaries) {
         String(THREADS.compute),
         '-filter_threads',
         String(THREADS.compute),
-        '-protocol_whitelist',
-        'file,pipe',
+        ...INPUT,
         ...args.slice(0, -1),
         '-threads',
         String(THREADS.compute),
@@ -209,8 +246,7 @@ export function mediaTools(binaries: Binaries) {
         await run(binaries.ffprobe, [
           '-v',
           'error',
-          '-protocol_whitelist',
-          'file,pipe',
+          ...INPUT,
           '-show_streams',
           '-show_format',
           '-of',
@@ -472,67 +508,88 @@ export function mediaTools(binaries: Binaries) {
     }
   }
 
-  async function audio(path: string, durationMs: number) {
-    const silence: { start: number; end: number }[] = []
-    let start = 0
-    // Preserve delayed audio and timeline gaps as silence rather than shifting cues to zero.
-    // FFmpeg 8+: https://ffmpeg.org/ffmpeg-resampler.html#Resampler-Options
-    const pcm = await ffmpeg(
-      [
-        '-v',
-        'info',
-        '-i',
-        path,
-        '-map',
-        '0:a:0',
-        '-vn',
-        '-ac',
-        '1',
-        '-ar',
-        '16000',
-        '-t',
-        String(durationMs / 1000),
-        '-af',
-        'aresample=16000:async=1:first_pts=0,silencedetect=noise=-50dB:d=0.5',
-        '-f',
-        'f32le',
-        'pipe:1',
-      ],
-      (line) => {
-        const begin = /silence_start: ([\d.e+-]+)/.exec(line)
-        const end = /silence_end: ([\d.e+-]+)/.exec(line)
-        if (begin) start = Number(begin[1])
-        if (end) silence.push({ start, end: Number(end[1]) })
-      },
+  // Decodes bounded pcm windows over the audio stream's own extent (no leading padding when
+  // audio starts late). Times stay on the container timeline like visual samples. A window
+  // with speech running into its edge ends early so the next window starts at that speech.
+  // FFmpeg 8+: https://ffmpeg.org/ffmpeg-resampler.html#Resampler-Options
+  async function* audio(path: string, durationMs: number) {
+    const { streams, format } = await container(path)
+    const stream = streams.find((entry) => entry.codec_type === 'audio')
+    if (!stream) return
+    const origin = seconds(format.start_time, 0)
+    const first = Math.max(0, seconds(stream.start_time, origin) - origin)
+    const end = Math.min(
+      durationMs / 1000,
+      first + seconds(stream.duration, Number.POSITIVE_INFINITY),
     )
-    // ponytail: whole-file PCM is 230 MB/hour before copies; use ffmpeg -ss/-t ASR windows if memory limits it.
-    const samples = new Float32Array(pcm.length / 4)
-    for (let i = 0; i < samples.length; i++) samples[i] = pcm.readFloatLE(i * 4)
-    const duration = samples.length / 16000
-    const spans: { start: number; end: number }[] = []
-    let cursor = 0
-    for (const gap of silence) {
-      if (gap.start > cursor)
-        spans.push({ start: cursor, end: Math.min(duration, gap.start + 0.15) })
-      cursor = Math.max(cursor, gap.end - 0.15)
-    }
-    if (cursor < duration) spans.push({ start: cursor, end: duration })
-    // Suppress residual padded silence, including all-silent clips.
-    return spans
-      .filter((span) => {
-        const first = Math.floor(span.start * 16000)
-        const last = Math.floor(span.end * 16000)
+    for (let at = first; at < end; ) {
+      const length = Math.min(AUDIO_WINDOW_S, end - at)
+      const silence: { start: number; end: number }[] = []
+      let start = 0
+      const pcm = await ffmpeg(
+        [
+          '-v',
+          'info',
+          '-ss',
+          String(at),
+          '-i',
+          path,
+          '-map',
+          '0:a:0',
+          '-vn',
+          '-ac',
+          '1',
+          '-ar',
+          '16000',
+          '-t',
+          String(length),
+          // timeline gaps inside the window stay silence instead of shifting later cues
+          '-af',
+          'aresample=16000:async=1:first_pts=0,silencedetect=noise=-50dB:d=0.5',
+          '-f',
+          'f32le',
+          'pipe:1',
+        ],
+        (line) => {
+          const begin = /silence_start: ([\d.e+-]+)/.exec(line)
+          const stop = /silence_end: ([\d.e+-]+)/.exec(line)
+          if (begin) start = Number(begin[1])
+          if (stop) silence.push({ start, end: Number(stop[1]) })
+        },
+      )
+      const samples = new Float32Array(pcm.length / 4)
+      for (let i = 0; i < samples.length; i++)
+        samples[i] = pcm.readFloatLE(i * 4)
+      const duration = samples.length / 16000
+      const spans: { start: number; end: number }[] = []
+      let cursor = 0
+      for (const gap of silence) {
+        if (gap.start > cursor)
+          spans.push({
+            start: cursor,
+            end: Math.min(duration, gap.start + 0.15),
+          })
+        cursor = Math.max(cursor, gap.end - 0.15)
+      }
+      if (cursor < duration) spans.push({ start: cursor, end: duration })
+      const last = spans.at(-1)
+      const carry =
+        at + length < end && last && last.start > 0 && last.end >= duration
+      if (carry) spans.pop()
+      for (const span of spans) {
+        const from = Math.floor(span.start * 16000)
+        const to = Math.floor(span.end * 16000)
         let energy = 0
-        for (const value of samples.subarray(first, last)) energy += value ** 2
-        return energy / (last - first) > 1e-5
-      })
-      .map((span) => ({
-        startMs: Math.round(span.start * 1000),
-        samples: samples.subarray(
-          Math.floor(span.start * 16000),
-          Math.floor(span.end * 16000),
-        ),
-      }))
+        for (let i = from; i < to; i++) energy += (samples[i] as number) ** 2
+        // Suppress residual padded silence, including all-silent clips.
+        if (energy / (to - from) > 1e-5)
+          yield {
+            startMs: Math.round((at + span.start) * 1000),
+            samples: samples.subarray(from, to),
+          }
+      }
+      at += carry ? (last as { start: number }).start : length
+    }
   }
 
   return { probe, image, ocrFrame, poster, sprite, analyze, extract, audio }

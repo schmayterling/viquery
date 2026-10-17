@@ -40,7 +40,8 @@ const revealLabel = () =>
 
 export function Viewer(props: Props) {
   const id = at(props.ids, props.index)
-  useItemsVersion()
+  const version = useItemsVersion()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: version refetches items a library change marked stale
   useEffect(() => {
     // neighbours too, so arrowing is instant
     ensureItems(
@@ -48,7 +49,7 @@ export function Viewer(props: Props) {
         (x) => x !== undefined,
       ),
     )
-  }, [props.ids, props.index, id])
+  }, [props.ids, props.index, id, version])
   const item = getItem(id)
   const ref = useRef<HTMLDivElement>(null)
   // the video player takes keyboard focus itself (its shortcuts need it); otherwise the viewer
@@ -192,7 +193,7 @@ export function Viewer(props: Props) {
               start={moments?.[0] ? Math.max(0, moments[0].startMs - 1000) : 0}
               poster={
                 moments?.[0]
-                  ? mediaUrl.frame(id, moments[0].seekMs)
+                  ? mediaUrl.frame(id, moments[0].frameMs)
                   : mediaUrl.thumb(id)
               }
               missing={<Missing item={item} folder={folder} />}

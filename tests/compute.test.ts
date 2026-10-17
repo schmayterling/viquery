@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict'
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import test from 'node:test'
 import { promisify } from 'node:util'
 import sharp from 'sharp'
 import { createComputeApi } from '../src/compute/api.ts'
+import { mediaTools } from '../src/compute/media.ts'
 import { loadTextEncoders } from '../src/ml/text.ts'
 import { dataPaths } from '../src/shared/paths.ts'
 import { binaries, dot, fixture, modelsDir } from './compute-tools.ts'
@@ -180,6 +182,28 @@ test('compute indexes fixture metadata, previews, visual moments and speech offl
     (await compute.speech({ mediaId: 7, path: muted })).segments,
     [],
   )
+  // a pure tone is audible but not speech: no invented transcript
+  const tone = join(dataDir, 'tone.mp4')
+  await promisify(execFile)(tools.ffmpeg, [
+    '-v',
+    'error',
+    '-y',
+    '-i',
+    muted,
+    '-f',
+    'lavfi',
+    '-i',
+    'sine=frequency=440:duration=1',
+    '-c:v',
+    'copy',
+    '-c:a',
+    'aac',
+    tone,
+  ])
+  assert.deepEqual(
+    (await compute.speech({ mediaId: 10, path: tone })).segments,
+    [],
+  )
 
   const staticVideo = join(dataDir, 'static.mp4')
   await promisify(execFile)(tools.ffmpeg, [
@@ -220,6 +244,35 @@ test('compute indexes fixture metadata, previews, visual moments and speech offl
   )
   assert.ok(Math.abs((staticVisual.samples.at(-1)?.tMs ?? NaN) - 20_750) <= 250)
 
+  // one frame every 20s: windows without a frame sample the frame held across them
+  const sparseVideo = join(dataDir, 'sparse.mp4')
+  await promisify(execFile)(tools.ffmpeg, [
+    '-v',
+    'error',
+    '-y',
+    '-f',
+    'lavfi',
+    '-i',
+    'testsrc2=size=96x64:rate=1/20',
+    '-t',
+    '40',
+    '-c:v',
+    'libx264',
+    sparseVideo,
+  ])
+  const sparse = await compute.visual({
+    ...launch,
+    mediaId: 9,
+    path: sparseVideo,
+    durationMs: 40_000,
+  })
+  for (const sample of sparse.samples) {
+    const scene = sparse.scenes[sample.scene]
+    const ms = sample.tMs as number
+    assert.ok(scene && ms >= scene.startMs && ms < scene.endMs)
+    assert.ok(existsSync(paths.frame(9, ms)))
+  }
+
   const speech = await compute.speech(launch)
   assert.match(
     speech.segments
@@ -234,4 +287,19 @@ test('compute indexes fixture metadata, previews, visual moments and speech offl
     assert.equal(segment.embedding.length, 384)
     assert.ok(Math.abs(dot(segment.embedding, segment.embedding) - 1) < 1e-5)
   }
+})
+
+test('media tools never follow a concat script disguised as a video', async (t) => {
+  const folder = await mkdtemp(join(tmpdir(), 'viquery-concat-'))
+  t.after(() => rm(folder, { recursive: true, force: true }))
+  // the segment link sits inside the folder but points at a file outside it
+  await symlink(join(fixture, 'launch.mp4'), join(folder, 'segment.mp4'))
+  const script = join(folder, 'holiday.mp4')
+  await writeFile(script, "ffconcat version 1.0\nfile 'segment.mp4'\n")
+  const media = mediaTools(binaries())
+  await assert.rejects(media.probe(script), /not on whitelist/)
+  await assert.rejects(
+    media.poster(script, join(folder, 'poster.webp')),
+    /not on whitelist/,
+  )
 })

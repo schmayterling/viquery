@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
-import { createReadStream, existsSync, realpathSync } from 'node:fs'
-import { open, opendir, realpath, stat } from 'node:fs/promises'
-import { basename, extname, join } from 'node:path'
+import { createReadStream, type Dir, existsSync, realpathSync } from 'node:fs'
+import { lstat, open, opendir, realpath, stat } from 'node:fs/promises'
+import { basename, extname, join, sep } from 'node:path'
 import type { SQLInputValue, StatementSync } from 'node:sqlite'
 import type {
   Filter,
@@ -98,15 +98,18 @@ const phases: Work[] = [
 const SAMPLED_ABOVE = 64 * 1024 * 1024
 const WINDOW = 4 * 1024 * 1024
 
-// ponytail: files over 64 MiB are identified by size + head/middle/tail 4 MiB windows, not a full read;
-// a full sha256 of a 96 GB remux stalled the scan for minutes. ceiling: two same-size files differing
-// only outside those windows share one identity. upgrade: full hash in a background pass after thumbnails.
-async function contentHash(path: string, size: number): Promise<Buffer> {
+async function fullHash(path: string): Promise<Buffer> {
   const hash = createHash('sha256')
-  if (size <= SAMPLED_ABOVE) {
-    for await (const chunk of createReadStream(path)) hash.update(chunk)
-    return hash.digest()
-  }
+  for await (const chunk of createReadStream(path)) hash.update(chunk)
+  return hash.digest()
+}
+
+// files over 64 MiB are keyed by size + head/middle/tail 4 MiB windows, not a full read;
+// a full sha256 of a 96 GB remux stalled the scan for minutes. a sampled match is only
+// trusted after a full-hash comparison against a present alias (see Catalog.confirmSampled).
+async function contentHash(path: string, size: number): Promise<Buffer> {
+  if (size <= SAMPLED_ABOVE) return fullHash(path)
+  const hash = createHash('sha256')
   hash.update(`sampled:${size}:`)
   const file = await open(path)
   try {
@@ -140,6 +143,8 @@ export class Catalog extends EventEmitter<{
   private paused = false
   private closed = false
   private changed = new Set<number>()
+  // root dev/ino at each folder's last complete scan
+  private roots = new Map<number, { dev: number; ino: number }>()
   private removed = new Set<number>()
   private libraryDirty = false
   private changeTimer: ReturnType<typeof setTimeout> | undefined
@@ -215,23 +220,48 @@ export class Catalog extends EventEmitter<{
 
   async addFolder(
     path: string,
-    beforeScan?: (folderId: number) => Promise<void>,
+    beforeScan?: (path: string, folderId: number) => Promise<void>,
   ): Promise<Folder> {
-    const canonical = await realpath(path)
+    let canonical = await realpath(path)
     if (canonical === this.dataDir)
       throw new Error('cannot index viquery data directory')
     if (!(await stat(canonical)).isDirectory())
       throw new Error('folder must be a directory')
-    this.stmt(
-      'insert into folder(path,added_at) values (?,?) on conflict(path) do nothing',
-    ).run(canonical, Date.now())
-    const folder = this.one<{ id: number }>(
-      'select id from folder where path=?',
-      canonical,
+    // a file belongs to exactly one folder: the outermost library folder containing it.
+    // adding a nested folder resolves to its container; adding a container absorbs nested folders.
+    const existing = this.all<{ id: number; path: string }>(
+      'select id,path from folder',
     )
-    if (!folder) throw new Error('folder was not added')
+    canonical =
+      existing.find((folder) => contains(folder.path, canonical))?.path ??
+      canonical
+    const folder = transaction(this.db, () => {
+      this.stmt(
+        'insert into folder(path,added_at) values (?,?) on conflict(path) do nothing',
+      ).run(canonical, Date.now())
+      const row = this.one<{ id: number }>(
+        'select id from folder where path=?',
+        canonical,
+      ) as { id: number }
+      for (const nested of existing.filter((folder) =>
+        contains(canonical, folder.path),
+      )) {
+        this.stmt('update file set folder_id=? where folder_id=?').run(
+          row.id,
+          nested.id,
+        )
+        this.stmt('delete from offline_folder where id=?').run(nested.id)
+        this.stmt('delete from folder where id=?').run(nested.id)
+      }
+      // adding a folder again is the explicit retry for its failed jobs
+      this.stmt(`update job set state='pending',attempts=0,error=null where state='failed'
+        and media_id in (select media_id from file where folder_id=?)`).run(
+        row.id,
+      )
+      return row
+    })
     this.notify([])
-    await beforeScan?.(folder.id)
+    await beforeScan?.(canonical, folder.id)
     await this.rescan(folder.id)
     return this.folders().find((entry) => entry.id === folder.id) as Folder
   }
@@ -356,9 +386,6 @@ export class Catalog extends EventEmitter<{
       .then(async () => {
         this.scanning++
         this.found = 0
-        this.db.exec(
-          "update job set state='pending',attempts=0,error=null where state='failed'",
-        )
         this.progress()
         this.pump() // already-queued thumbnails run while the scan walks
         try {
@@ -403,8 +430,13 @@ export class Catalog extends EventEmitter<{
       folder.id,
     )
     const byPath = new Map(previous.map((file) => [file.path, file]))
+    const skipped: string[] = []
     const rootInfo = await stat(folder.path)
-    for await (const path of walk(folder.path, this.dataDir)) {
+    for await (const path of walk(
+      await opendir(folder.path),
+      this.dataDir,
+      skipped,
+    )) {
       if (
         this.closed ||
         !this.one('select id from folder where id=?', folder.id)
@@ -418,7 +450,9 @@ export class Catalog extends EventEmitter<{
         const old = byPath.get(path)
         if (old?.size === before.size && old.mtime_ms === before.mtimeMs)
           continue
-        const digest = await contentHash(path, before.size)
+        let digest = await contentHash(path, before.size)
+        if (before.size > SAMPLED_ABOVE)
+          digest = await this.confirmSampled(digest, path)
         const after = await stat(path)
         if (!sameFile(before, after)) continue
         const mediaId = transaction(this.db, () => {
@@ -446,6 +480,10 @@ export class Catalog extends EventEmitter<{
           this.stmt(
             "insert into job(media_id,stage,generation,state) values (?,'thumb',?,'pending') on conflict do nothing",
           ).run(id, generations.thumb)
+          // a new or changed alias earns its media's failed jobs one more round of attempts
+          this.stmt(
+            "update job set state='pending',attempts=0,error=null where media_id=? and state='failed'",
+          ).run(id)
           return id
         })
         this.notify(old ? [old.media_id, mediaId] : [mediaId])
@@ -457,8 +495,32 @@ export class Catalog extends EventEmitter<{
     const currentRoot = await stat(folder.path)
     if (rootInfo.ino !== currentRoot.ino || rootInfo.dev !== currentRoot.dev)
       throw new Error('folder changed during scan')
+    for (const directory of skipped)
+      this.emit(
+        'warning',
+        new Error(`${directory}: unreadable; its indexed files are kept`),
+      )
+    const vanished = previous.filter(
+      (file) =>
+        !seen.has(file.path) &&
+        !skipped.some((directory) => contains(directory, file.path)),
+    )
+    // an unmounted drive can leave an empty mount point, and another volume can appear at
+    // the same path. neither means every file was deleted: keep aliases, show it offline.
+    const known = this.roots.get(folder.id)
+    if (
+      previous.length &&
+      vanished.length === previous.length &&
+      (!seen.size ||
+        (known && (known.dev !== rootInfo.dev || known.ino !== rootInfo.ino)))
+    ) {
+      this.stmt('insert or ignore into offline_folder(id) values (?)').run(
+        folder.id,
+      )
+      return
+    }
+    this.roots.set(folder.id, { dev: rootInfo.dev, ino: rootInfo.ino })
     this.stmt('delete from offline_folder where id=?').run(folder.id)
-    const vanished = previous.filter((file) => !seen.has(file.path))
     transaction(this.db, () => {
       for (const file of vanished)
         this.stmt('delete from file where path=? and folder_id=?').run(
@@ -467,6 +529,30 @@ export class Catalog extends EventEmitter<{
         )
     })
     if (vanished.length) this.notify(vanished.map((file) => file.media_id))
+  }
+
+  // a sampled key shared with another unchanged alias is confirmed by hashing both files fully;
+  // different content is keyed by its full sha256 instead. renames/moves (no other alias still
+  // present) keep the sampled match without a full read.
+  // ponytail: a distinct file whose sampled twin is gone (moved away or deleted) inherits its identity.
+  // upgrade: persist full hashes per media and compare when a sampled match has no present alias.
+  private async confirmSampled(digest: Buffer, path: string): Promise<Buffer> {
+    const aliases = this.all<FileRow>(
+      `select f.path,f.size,f.mtime_ms from file f join media m on m.id=f.media_id
+      where m.sha256=? and f.path!=?`,
+      digest,
+      path,
+    )
+    for (const alias of aliases) {
+      const info = await stat(alias.path).catch(() => null)
+      if (info?.size !== alias.size || info.mtimeMs !== alias.mtime_ms) continue
+      const [mine, theirs] = await Promise.all([
+        fullHash(path),
+        fullHash(alias.path),
+      ])
+      return mine.equals(theirs) ? digest : mine
+    }
+    return digest
   }
 
   private notify(ids: number[]): void {
@@ -656,8 +742,13 @@ export class Catalog extends EventEmitter<{
   }
 
   private async checkFile(job: Job): Promise<void> {
-    const current = await stat(job.path)
-    if (current.size !== job.size || current.mtimeMs !== job.mtime_ms) {
+    // lstat: an alias swapped for a symlink must not lead compute outside the folder
+    const current = await lstat(job.path)
+    if (
+      !current.isFile() ||
+      current.size !== job.size ||
+      current.mtimeMs !== job.mtime_ms
+    ) {
       void this.rescan()
       throw new Error('file changed during indexing; rescan queued')
     }
@@ -785,23 +876,41 @@ export class Catalog extends EventEmitter<{
   }
 }
 
-async function* walk(path: string, ignored: string): AsyncGenerator<string> {
-  const entries = await opendir(path)
-  for await (const entry of entries) {
-    const child = join(path, entry.name)
+// unreadable or vanished subdirectories are reported in skipped instead of failing the scan.
+async function* walk(
+  directory: Dir,
+  ignored: string,
+  skipped: string[],
+): AsyncGenerator<string> {
+  for await (const entry of directory) {
+    const child = join(directory.path, entry.name)
     if (
       child === ignored ||
       ['.Trash', '.Trashes', '$RECYCLE.BIN'].includes(entry.name)
     )
       continue
-    if (entry.isDirectory()) yield* walk(child, ignored)
-    else if (
+    if (entry.isDirectory()) {
+      const nested = await opendir(child).catch((error) => {
+        if (
+          !['ENOENT', 'EACCES', 'EPERM', 'ENOTDIR'].includes(
+            (error as NodeJS.ErrnoException).code ?? '',
+          )
+        )
+          throw error
+        skipped.push(child)
+      })
+      if (nested) yield* walk(nested, ignored, skipped)
+    } else if (
       entry.isFile() &&
       (images.has(extname(child).toLowerCase()) ||
         videos.has(extname(child).toLowerCase()))
     )
       yield child
   }
+}
+
+function contains(parent: string, child: string): boolean {
+  return child.startsWith(parent.endsWith(sep) ? parent : parent + sep)
 }
 
 function sameFile(

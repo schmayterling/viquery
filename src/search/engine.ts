@@ -286,44 +286,67 @@ export class SearchEngine {
   async search(query: string, filter: Filter): Promise<SearchResult> {
     const start = performance.now()
     const text = queryText(query)
-    const sqlFilter = filterSql(filter)
-    if (!text)
-      return this.result(
-        query,
-        [],
-        this.selected(filter, sqlFilter.params.recent as number | undefined),
-        start,
-      )
-    const [clip, sentence] = await this.encode(text)
+    filterSql(filter)
+    const encoded = text ? await this.encode(text) : null
     return this.snapshot(async () => {
-      const selected = this.selected(
-        filter,
-        sqlFilter.params.recent as number | undefined,
-      )
-      const visual = this.vectorBranch(
-        [{ table: this.visual, source: 'visual' }],
-        [clip],
-        selected,
-      )
-      const speech = this.vectorBranch(
-        [
-          { table: this.speech, source: 'speech' },
-          { table: this.text, source: 'text' },
-        ],
-        [sentence],
-        selected,
-      )
-      const lexical = this.read(() =>
-        this.lexicalBranch(text, selected, sqlFilter),
-      )
-      const [visualHits, speechHits] = await Promise.all([visual, speech])
-      return this.result(
+      if (filter.media !== 'all')
+        return this.rank(query, text, encoded, filter, start)
+      // relevance bands and candidate caps are per kind: a dense video must not crowd out
+      // or out-score the photos an images tab would show for the same query.
+      const [images, videos] = await Promise.all([
+        this.rank(query, text, encoded, { ...filter, media: 'image' }, start),
+        this.rank(query, text, encoded, { ...filter, media: 'video' }, start),
+      ])
+      return {
         query,
-        [visualHits, lexical, speechHits],
-        selected,
-        start,
-      )
+        images: images.images,
+        videos: videos.videos,
+        pending: {
+          images: images.pending.images,
+          videos: videos.pending.videos,
+        },
+        tookMs: performance.now() - start,
+      }
     })
+  }
+
+  private async rank(
+    query: string,
+    text: string,
+    encoded: [Float32Array, Float32Array] | null,
+    filter: Filter,
+    start: number,
+  ): Promise<SearchResult> {
+    const sqlFilter = filterSql(filter)
+    const selected = this.selected(
+      filter,
+      sqlFilter.params.recent as number | undefined,
+    )
+    if (!encoded) return this.result(query, [], selected, start)
+    const [clip, sentence] = encoded
+    const visual = this.vectorBranch(
+      [{ table: this.visual, source: 'visual' }],
+      [clip],
+      selected,
+    )
+    const speech = this.vectorBranch(
+      [
+        { table: this.speech, source: 'speech' },
+        { table: this.text, source: 'text' },
+      ],
+      [sentence],
+      selected,
+    )
+    const lexical = this.read(() =>
+      this.lexicalBranch(text, selected, sqlFilter),
+    )
+    const [visualHits, speechHits] = await Promise.all([visual, speech])
+    return this.result(
+      query,
+      [visualHits, lexical, speechHits],
+      selected,
+      start,
+    )
   }
 
   async searchVideo(id: number, query: string): Promise<SceneMatch[]> {
@@ -347,13 +370,17 @@ export class SearchEngine {
               snippet: null,
               score: 0,
               match: false,
-            } as SceneMatch,
+            } as Omit<SceneMatch, 'frameMs'>,
             signals: [null, null, null] as (number | null)[],
             ocrMs: null as number | null,
           },
         ]),
       )
-      if (!encoded) return [...heat.values()].map((h) => h.moment)
+      if (!encoded)
+        return [...heat.values()].map(({ moment }) => ({
+          ...moment,
+          frameMs: this.frameMs(id, moment.seekMs),
+        }))
       const [clip, sentence] = encoded
       const visual = this.visual.ranked(id, clip)
       const cutoff = relevanceCutoff(
@@ -419,17 +446,31 @@ export class SearchEngine {
           (signals[2] ?? 0) / (lexicalMax || 1),
       )
       const max = Math.max(...scores)
-      return entries.map(({ moment, ocrMs }, index) => ({
-        ...moment,
-        seekMs:
+      return entries.map(({ moment, ocrMs }, index) => {
+        const seekMs =
           ocrMs ??
           (moment.sources.length && !moment.sources.includes('visual')
             ? moment.startMs
-            : moment.seekMs),
-        score: max > 0 ? scores[index]! / max : 0,
-        match: moment.sources.length > 0,
-      }))
+            : moment.seekMs)
+        return {
+          ...moment,
+          seekMs,
+          frameMs: this.frameMs(id, seekMs),
+          score: max > 0 ? scores[index]! / max : 0,
+          match: moment.sources.length > 0,
+        }
+      })
     })
+  }
+
+  // saved frame nearest a seek time: visual sample frames and ocr keyframes exist on disk,
+  // speech segment starts and scene starts generally do not.
+  private frameMs(mediaId: number, ms: number): number {
+    const frames = [
+      this.visual.nearest(mediaId, ms),
+      this.text.nearest(mediaId, ms),
+    ].filter((frame) => frame !== null)
+    return frames.sort((a, b) => Math.abs(a - ms) - Math.abs(b - ms))[0] ?? ms
   }
 
   private lexicalVideo(id: number, query: string): Map<string, number> {
@@ -731,7 +772,20 @@ export class SearchEngine {
     return { query, images, videos, pending, tookMs: performance.now() - start }
   }
 
-  private moments(hits: Ranked[]): Moment[] {
+  private moments(all: Ranked[]): Moment[] {
+    // the wide global band decides whether the video is a result; displayed spans keep only
+    // scenes the timeline band (searchVideo) also marks, so card and player agree.
+    const cutoff = relevanceCutoff(
+      'visual',
+      Math.max(...all.map((h) => h.sample?.score ?? -Infinity)),
+      visualBand.timeline,
+    )
+    const hits = all.filter(
+      (h) =>
+        h.sources.size > 1 ||
+        !h.sources.has('visual') ||
+        h.sample!.score >= cutoff,
+    )
     const positions = new Map(
       this.mediaScenes
         .get(hits[0]!.target.mediaId)!
@@ -765,6 +819,8 @@ export class SearchEngine {
           .sort((a, b) => b.score - a.score)
           .find((h) => h.segment)
         const representative = spoken ?? visual ?? best
+        const seekMs =
+          spoken?.segment?.startMs ?? visual?.sample?.ms ?? group.start
         const sources = new Set(group.hits.flatMap((h) => [...h.sources]))
         return {
           score: best.score,
@@ -772,8 +828,8 @@ export class SearchEngine {
             sceneId: representative.target.scene!.id,
             startMs: group.start,
             endMs: group.end,
-            seekMs:
-              spoken?.segment?.startMs ?? visual?.sample?.ms ?? group.start,
+            seekMs,
+            frameMs: this.frameMs(representative.target.mediaId, seekMs),
             sources: [...sources],
             snippet: spoken?.segment?.text ?? null,
           },

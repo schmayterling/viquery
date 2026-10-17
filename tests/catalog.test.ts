@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import {
+  chmod,
   cp,
   mkdir,
   mkdtemp,
+  open,
   readFile,
   rename,
   rm,
   unlink,
+  utimes,
+  writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
@@ -176,6 +180,13 @@ test('catalog fixture: content identity, aliases, phased jobs, retries, resume a
   )
 
   speechFails = false
+  const speechCalls = calls.length
+  await catalog.rescan()
+  await catalog.settled()
+  assert.equal(calls.length, speechCalls)
+  // failures are retried when their file changes, not on every reconciliation
+  const touched = new Date()
+  await utimes(join(library, 'launch.mp4'), touched, touched)
   await catalog.rescan()
   await catalog.settled()
   assert.equal(
@@ -296,5 +307,63 @@ test('catalog fixture: content identity, aliases, phased jobs, retries, resume a
       )
       .get()?.n,
     1,
+  )
+})
+
+test('catalog folder boundaries: sampled identity, nested folders, missing roots', async (t) => {
+  const root = await mkdtemp(join(tmpdir(), 'viquery-boundary-'))
+  const catalog = new Catalog(join(root, 'data'), {} as ComputeApi)
+  t.after(async () => {
+    await catalog.close()
+    await rm(root, { recursive: true, force: true })
+  })
+  catalog.pauseIndexing(true)
+
+  // same size and identical sampled windows, different bytes at 8 MiB
+  const large = join(root, 'large')
+  await mkdir(large)
+  for (const [name, patch] of [
+    ['a.bmp', false],
+    ['b.bmp', true],
+    ['c.bmp', false],
+  ] as const) {
+    const file = await open(join(large, name), 'w')
+    await file.truncate(75 * 1024 * 1024)
+    if (patch) await file.write(Buffer.alloc(1024, 255), 0, 1024, 8 << 20)
+    await file.close()
+  }
+  await catalog.addFolder(large)
+  // a and c are true duplicates; b must not merge into them
+  assert.equal(catalog.library(all).ids.length, 2)
+
+  // nested folders: the outer folder owns every file under it
+  const child = join(large, 'child')
+  await mkdir(child)
+  await writeFile(join(child, 'x.jpg'), 'nested')
+  const outer = await catalog.addFolder(large)
+  assert.deepEqual(await catalog.addFolder(child), outer)
+  catalog.removeFolder(outer.id)
+  await catalog.addFolder(child)
+  const absorbed = await catalog.addFolder(large)
+  assert.deepEqual(
+    catalog.folders().map((folder) => [folder.id, folder.count]),
+    [[absorbed.id, 3]],
+  )
+
+  // an unreadable subdirectory is skipped, not a reason to take the folder offline or drop its files
+  await chmod(child, 0)
+  await catalog.rescan()
+  await chmod(child, 0o700)
+  assert.deepEqual(
+    catalog.folders().map((folder) => [folder.state, folder.count]),
+    [['online', 3]],
+  )
+  // an unmounted drive leaving an empty mount point is offline, not a mass deletion
+  await rename(large, `${large}-unmounted`)
+  await mkdir(large)
+  await catalog.rescan()
+  assert.deepEqual(
+    catalog.folders().map((folder) => [folder.state, folder.count]),
+    [['offline', 3]],
   )
 })

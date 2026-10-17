@@ -281,7 +281,7 @@ function MomentCard(props: {
       >
         <img
           key={m.seekMs}
-          src={mediaUrl.frame(hit.mediaId, m.seekMs)}
+          src={mediaUrl.frame(hit.mediaId, m.frameMs)}
           alt=""
           decoding="async"
           draggable={false}

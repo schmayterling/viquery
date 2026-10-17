@@ -135,6 +135,18 @@ export class Vectors implements Matrix {
     return scan(this, query, undefined, slots.length, slots)
   }
 
+  // start time of this media's row nearest ms, null without rows
+  nearest(mediaId: number, ms: number): number | null {
+    let best: number | null = null
+    for (const i of this.slots.get(mediaId) ?? [])
+      if (
+        best === null ||
+        Math.abs(this.startMs[i]! - ms) < Math.abs(best - ms)
+      )
+        best = this.startMs[i]!
+    return best
+  }
+
   queries(mediaId: number): Float32Array[] {
     return (this.slots.get(mediaId) ?? []).map((i) =>
       this.data.slice(i * this.dimensions, (i + 1) * this.dimensions),
