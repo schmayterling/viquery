@@ -138,7 +138,9 @@ create virtual table file_fts using fts5(
 
 1. parse query + filter. 2. clip text vector -> exact dot-product scan over current sample vectors (filtered by scope/kind/date via per-media metadata held in memory) -> top 200 samples. 3. fts5 bm25 over transcript + file names (query escaped as data) -> top 200. 4. sentence vector -> exact scan over transcript vectors -> top 200. 5. canonicalize each branch to targets (image media, or video scene; transcript segments map to overlapping scenes); one vote per target per branch. 6. reciprocal rank fusion, k = 60. 7. group video targets by media, merge adjacent matched scenes with gap < 2s, keep best sample time as seekMs. returns `SearchResult`.
 - exact scan first (measured ~50ms for 100k x 512 f32 in one js thread on m2). add an ann index only when measured p95 misses the budget at real vector counts, keeping exact rerank.
-- `similar(id)`: same scan with the media's own vector(s) as query.
+- natural-language branches gate before fusion: clip cosine >= max(0.20, best in query scope - 0.08), sentence cosine >= 0.45; fts votes require actual term hits. calibrated on the default model pack against the 10x10 named image/query matrix + eight abstract queries (`src/search/bench-calibration.ts`), and `launch.mp4` + generated testsrc2/tone/silence distractors in core-smoke. merged moments span at most 30s; speech matches seek to the segment start.
+- `searchVideo(id, query)`: scan only that media's vector slots, pool max per scene and map transcript overlaps. a lazy, single-video in-memory fts index keeps bm25 statistics local; catalog changes invalidate it. the same cutoff helper uses a stricter 0.006 clip band for timeline markers; sum cosine excess above the soft floors + relative bm25, then normalize by the strongest scene for continuous scene heat in time order, including zero-heat unmatched scenes. speech-only markers seek to scene start; missing/unindexed videos return `[]`.
+- `similar(id)`: same scan with the media's own vector(s) as query; text-image relevance floors do not apply to image-image similarity.
 
 ## renderer
 

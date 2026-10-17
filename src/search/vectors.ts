@@ -1,5 +1,5 @@
 // biome-ignore-all lint/style/noNonNullAssertion: indices are bounded by count; live rows have a per-media slot list.
-import type { Matrix } from './scan.ts'
+import { type Matrix, scan } from './scan.ts'
 
 export type VectorRow = {
   id: number
@@ -128,6 +128,11 @@ export class Vectors implements Matrix {
     for (let i = 0; i < this.count; i++)
       mask[i] = Number(media.has(this.mediaIds[i]!))
     return mask
+  }
+
+  ranked(mediaId: number, query: Float32Array) {
+    const slots = this.slots.get(mediaId) ?? []
+    return scan(this, query, undefined, slots.length, slots)
   }
 
   queries(mediaId: number): Float32Array[] {

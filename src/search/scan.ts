@@ -40,6 +40,7 @@ export function scan(
   query: Float32Array,
   allowed?: Uint8Array,
   limit = 200,
+  indices?: readonly number[],
 ): Neighbor[] {
   const { data, count, dimensions } = matrix
   if (!count || limit <= 0) return []
@@ -47,11 +48,9 @@ export function scan(
     throw new Error('embedding dimension mismatch')
   const heap: Neighbor[] = []
   const unrolled = dimensions - (dimensions % 4)
-  for (
-    let index = 0, offset = 0;
-    index < count;
-    index++, offset += dimensions
-  ) {
+  for (let row = 0; row < (indices?.length ?? count); row++) {
+    const index = indices ? indices[row]! : row
+    const offset = index * dimensions
     if (allowed && !allowed[index]) continue
     let a = 0,
       b = 0,
@@ -66,7 +65,8 @@ export function scan(
     }
     let score = a + b + c + d
     for (; j < dimensions; j++) score += data[offset + j]! * query[j]!
-    offer(heap, index, score, limit)
+    if (limit >= (indices?.length ?? count)) heap.push({ index, score })
+    else offer(heap, index, score, limit)
   }
   return heap.sort((a, b) => b.score - a.score || a.index - b.index)
 }

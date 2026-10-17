@@ -4,6 +4,7 @@ import type {
   Filter,
   MatchSource,
   Moment,
+  SceneMatch,
   SearchResult,
 } from '../shared/api.ts'
 import {
@@ -46,8 +47,35 @@ const transcriptSql = `select id, media_id, null as scene_id, start_ms, end_ms, 
   from transcript where generation = ?`
 const sceneSql =
   'select id, media_id, start_ms, end_ms from scene where generation = ?'
+// bench-calibration-results.json: CLIP positives .235–.335, negatives .150–.246, abstract tops >= .216; wide retrieval band, marker band < .0077 launch gap; JFK .761 vs unrelated <= .284.
+const relevanceFloor = { visual: 0.2, speech: 0.45 }
+const visualBand = { global: 0.08, timeline: 0.006 }
+const relevanceCutoff = (
+  source: 'visual' | 'speech',
+  best: number,
+  band: number,
+) =>
+  source === 'visual'
+    ? Math.max(relevanceFloor.visual, best - band)
+    : relevanceFloor.speech
+const maxMomentMs = 30_000
 const recentMs = 30 * 24 * 60 * 60 * 1000
 const key = (t: Target) => (t.scene ? `s${t.scene.id}` : `m${t.mediaId}`)
+
+function queryText(query: string) {
+  if (typeof query !== 'string' || query.length > 4096)
+    throw new Error('invalid search query (maximum 4096 characters)')
+  return query.trim()
+}
+
+function ftsQuery(query: string) {
+  // FTS5 strings use doubled quotes; SQL binding alone does not escape MATCH syntax.
+  // SQLite FTS5 §3.1: https://sqlite.org/fts5.html (Node 24.22 bundled SQLite).
+  return query
+    .split(/\s+/u)
+    .map((term) => `"${term.replaceAll('"', '""')}"`)
+    .join(' OR ')
+}
 
 function filterSql(filter: Filter) {
   if (
@@ -101,6 +129,7 @@ export class SearchEngine {
   private mediaScenes = new Map<number, Scene[]>()
   private pending = new Set<number>()
   private queryVectors = new Map<string, [Float32Array, Float32Array]>()
+  private videoFts: { mediaId: number; db: DatabaseSync } | undefined
   private scanner = new Scanner()
   private activeQueries = 0
   private deferred: CatalogChange[] = []
@@ -114,7 +143,9 @@ export class SearchEngine {
       for (const row of this.db.prepare(`${mediaSql} group by m.id`).iterate())
         this.addMedia(row as Media)
       this.refreshPending()
-      for (const row of this.db.prepare(sceneSql).iterate(GENERATION.visual))
+      for (const row of this.db
+        .prepare(`${sceneSql} order by start_ms, id`)
+        .iterate(GENERATION.visual))
         this.addScene(row as Scene)
       for (const [table, sql, generation] of [
         [this.visual, sampleSql, GENERATION.visual],
@@ -134,6 +165,7 @@ export class SearchEngine {
 
   async close() {
     await this.scanner.close()
+    this.videoFts?.db.close()
     this.db.close()
   }
 
@@ -177,6 +209,10 @@ export class SearchEngine {
       return
     }
     const removed = new Set([...change.changedMedia, ...change.removedMedia])
+    if (this.videoFts && removed.has(this.videoFts.mediaId)) {
+      this.videoFts.db.close()
+      this.videoFts = undefined
+    }
     this.visual.remove(removed)
     this.speech.remove(removed)
     for (const id of removed) {
@@ -189,7 +225,9 @@ export class SearchEngine {
       const metadata = this.db.prepare(
         `${mediaSql} where m.id = ? group by m.id`,
       )
-      const scenes = this.db.prepare(`${sceneSql} and media_id = ?`)
+      const scenes = this.db.prepare(
+        `${sceneSql} and media_id = ? order by start_ms, id`,
+      )
       const samples = this.db.prepare(`${sampleSql} and media_id = ?`)
       const transcripts = this.db.prepare(`${transcriptSql} and media_id = ?`)
       this.refreshPending()
@@ -244,10 +282,8 @@ export class SearchEngine {
 
   async search(query: string, filter: Filter): Promise<SearchResult> {
     const start = performance.now()
-    if (typeof query !== 'string' || query.length > 4096)
-      throw new Error('invalid search query (maximum 4096 characters)')
+    const text = queryText(query)
     const sqlFilter = filterSql(filter)
-    const text = query.trim()
     if (!text)
       return this.result(
         query,
@@ -279,6 +315,126 @@ export class SearchEngine {
         start,
       )
     })
+  }
+
+  async searchVideo(id: number, query: string): Promise<SceneMatch[]> {
+    if (!Number.isSafeInteger(id) || id <= 0)
+      throw new Error('invalid media id')
+    const text = queryText(query)
+    if (this.media.get(id)?.kind !== 1 || !this.mediaScenes.get(id)?.length)
+      return []
+    const encoded = text ? await this.encode(text) : null
+    return this.snapshot(async () => {
+      const heat = new Map(
+        (this.mediaScenes.get(id) ?? []).map((scene) => [
+          scene.id,
+          {
+            moment: {
+              sceneId: scene.id,
+              startMs: scene.start_ms,
+              endMs: scene.end_ms,
+              seekMs: scene.start_ms,
+              sources: [],
+              snippet: null,
+              score: 0,
+              match: false,
+            } as SceneMatch,
+            signals: [null, null, null] as (number | null)[],
+          },
+        ]),
+      )
+      if (!encoded) return [...heat.values()].map((h) => h.moment)
+      const [clip, sentence] = encoded
+      const visual = this.visual.ranked(id, clip)
+      const cutoff = relevanceCutoff(
+        'visual',
+        visual[0]?.score ?? -Infinity,
+        visualBand.timeline,
+      )
+      for (const { index, score } of visual) {
+        const entry = heat.get(this.visual.sceneIds[index]!)
+        if (!entry || entry.signals[0] !== null) continue
+        entry.signals[0] = score
+        entry.moment.seekMs = this.visual.startMs[index]!
+        if (score >= cutoff) entry.moment.sources.push('visual')
+      }
+      const lexical = this.lexicalVideo(id, text)
+      for (const { index, score } of this.speech.ranked(id, sentence)) {
+        const lexicalScore = lexical.get(this.speech.ids[index]!)
+        for (const { scene } of this.targets(
+          id,
+          this.speech.startMs[index]!,
+          this.speech.endMs[index]!,
+        )) {
+          const entry = heat.get(scene!.id)!
+          if (entry.signals[1] === null) {
+            entry.signals[1] = score
+            if (score >= relevanceFloor.speech) {
+              entry.moment.sources.push('speech')
+              entry.moment.snippet = this.speech.text[index]!
+            }
+          }
+          if (
+            lexicalScore !== undefined &&
+            lexicalScore > (entry.signals[2] ?? -Infinity)
+          ) {
+            entry.signals[2] = lexicalScore
+            if (!entry.moment.sources.includes('text'))
+              entry.moment.sources.push('text')
+            entry.moment.snippet = this.speech.text[index]!
+          }
+        }
+      }
+      const entries = [...heat.values()]
+      const lexicalMax = Math.max(0, ...lexical.values())
+      // Sum cosine excess above the soft floors plus relative BM25, normalize by the best
+      // scene: continuous heat preserves shared strong speech across overlapping scenes.
+      const scores = entries.map(
+        ({ signals }) =>
+          Math.max(0, (signals[0] ?? 0) - relevanceFloor.visual) +
+          Math.max(0, (signals[1] ?? 0) - relevanceFloor.speech) +
+          (signals[2] ?? 0) / (lexicalMax || 1),
+      )
+      const max = Math.max(...scores)
+      return entries.map(({ moment }, index) => ({
+        ...moment,
+        seekMs:
+          moment.sources.length && !moment.sources.includes('visual')
+            ? moment.startMs
+            : moment.seekMs,
+        score: max > 0 ? scores[index]! / max : 0,
+        match: moment.sources.length > 0,
+      }))
+    })
+  }
+
+  private lexicalVideo(id: number, query: string): Map<number, number> {
+    if (this.videoFts?.mediaId !== id) {
+      this.videoFts?.db.close()
+      // BM25 computes corpus statistics. A single-video FTS cache keeps those local too;
+      // a media-filtered join to the library FTS still visits other videos' term postings.
+      // SQLite FTS5 §5.1.1 (Node 24.22): https://sqlite.org/fts5.html#the_bm25_function
+      const db = new DatabaseSync(':memory:')
+      db.exec('create virtual table segment using fts5(text); begin')
+      const insert = db.prepare('insert into segment(rowid, text) values(?, ?)')
+      this.read(() => {
+        for (const row of this.db
+          .prepare(
+            'select id, text from transcript where media_id = ? and generation = ?',
+          )
+          .iterate(id, GENERATION.speech))
+          insert.run(row.id!, row.text!)
+      })
+      db.exec('commit')
+      this.videoFts = { mediaId: id, db }
+    }
+    return new Map(
+      (
+        this.videoFts.db
+          .prepare('select rowid, rank from segment where segment match ?')
+          .all(ftsQuery(query)) as { rowid: number; rank: number }[]
+      ).map((row) => [row.rowid, -row.rank]),
+    )
   }
 
   private async encode(text: string): Promise<[Float32Array, Float32Array]> {
@@ -322,12 +478,14 @@ export class SearchEngine {
             this.visual.queries(id),
             candidates,
             'visual',
+            false,
           ),
           this.vectorBranch(
             this.speech,
             this.speech.queries(id),
             candidates,
             'speech',
+            false,
           ),
         ]),
         selected,
@@ -342,22 +500,31 @@ export class SearchEngine {
     end: number | null,
   ): Target[] {
     if (this.media.get(mediaId)!.kind === 0) return [{ mediaId, scene: null }]
-    return (this.mediaScenes.get(mediaId) ?? [])
-      .filter(
-        (s) =>
-          start === null ||
-          (start === end
-            ? s.start_ms <= start && start < s.end_ms
-            : s.start_ms < end! && s.end_ms > start),
-      )
-      .map((scene) => ({ mediaId, scene }))
+    const scenes = this.mediaScenes.get(mediaId) ?? []
+    if (start === null) return scenes.map((scene) => ({ mediaId, scene }))
+    // Scene windows are ordered and non-overlapping; skip straight to the first overlap.
+    let lo = 0
+    let hi = scenes.length
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1
+      if (scenes[mid]!.end_ms <= start) lo = mid + 1
+      else hi = mid
+    }
+    const targets: Target[] = []
+    for (let i = lo; i < scenes.length; i++) {
+      const scene = scenes[i]!
+      if (start === end ? scene.start_ms > start : scene.start_ms >= end!) break
+      targets.push({ mediaId, scene })
+    }
+    return targets
   }
 
   private async vectorBranch(
     table: Vectors,
     queries: Float32Array[],
     selected: Set<number>,
-    source: MatchSource,
+    source: 'visual' | 'speech',
+    gated = true,
   ) {
     const branch = new Map<string, Evidence>()
     if (!queries.length) return branch
@@ -373,7 +540,13 @@ export class SearchEngine {
     const hits = [...scores]
       .sort((a, b) => b[1] - a[1] || a[0] - b[0])
       .slice(0, 200)
+    const cutoff = relevanceCutoff(
+      source,
+      hits[0]?.[1] ?? -Infinity,
+      visualBand.global,
+    )
     for (const [index, score] of hits) {
+      if (gated && score < cutoff) continue
       const mediaId = table.mediaIds[index]!
       let targets: Target[]
       if (source === 'visual' && this.media.get(mediaId)!.kind === 1) {
@@ -405,12 +578,7 @@ export class SearchEngine {
     filter: ReturnType<typeof filterSql>,
   ) {
     const branch = new Map<string, Evidence>()
-    // FTS5 strings use doubled quotes; SQL binding alone does not escape MATCH syntax.
-    // SQLite FTS5 §3.1, §5.1.1: https://sqlite.org/fts5.html (Node 24.22 bundled SQLite).
-    const match = query
-      .split(/\s+/u)
-      .map((term) => `"${term.replaceAll('"', '""')}"`)
-      .join(' OR ')
+    const match = ftsQuery(query)
     const speech = this.db
       .prepare(`select t.media_id, t.start_ms, t.end_ms, t.text, transcript_fts.rank
       from transcript_fts join transcript t on t.id = transcript_fts.rowid join media m on m.id = t.media_id
@@ -507,13 +675,24 @@ export class SearchEngine {
   }
 
   private moments(hits: Ranked[]): Moment[] {
+    const positions = new Map(
+      this.mediaScenes
+        .get(hits[0]!.target.mediaId)!
+        .map((scene, index) => [scene.id, index]),
+    )
     const groups: { start: number; end: number; hits: Ranked[] }[] = []
     for (const hit of hits.sort(
       (a, b) => a.target.scene!.start_ms - b.target.scene!.start_ms,
     )) {
       const scene = hit.target.scene!
       const previous = groups.at(-1)
-      if (previous && scene.start_ms - previous.end < 2000) {
+      if (
+        previous &&
+        positions.get(scene.id) ===
+          positions.get(previous.hits.at(-1)!.target.scene!.id)! + 1 &&
+        scene.start_ms - previous.end < 2000 &&
+        scene.end_ms - previous.start <= maxMomentMs
+      ) {
         previous.end = Math.max(previous.end, scene.end_ms)
         previous.hits.push(hit)
       } else
@@ -525,10 +704,10 @@ export class SearchEngine {
         const visual = group.hits
           .filter((h) => h.sample)
           .sort((a, b) => b.sample!.score - a.sample!.score)[0]
-        const segment = [...group.hits]
+        const spoken = [...group.hits]
           .sort((a, b) => b.score - a.score)
-          .find((h) => h.segment)?.segment
-        const representative = visual ?? best
+          .find((h) => h.segment)
+        const representative = spoken ?? visual ?? best
         const sources = new Set(group.hits.flatMap((h) => [...h.sources]))
         return {
           score: best.score,
@@ -536,9 +715,10 @@ export class SearchEngine {
             sceneId: representative.target.scene!.id,
             startMs: group.start,
             endMs: group.end,
-            seekMs: visual?.sample?.ms ?? segment?.startMs ?? group.start,
+            seekMs:
+              spoken?.segment?.startMs ?? visual?.sample?.ms ?? group.start,
             sources: [...sources],
-            snippet: segment?.text ?? null,
+            snippet: spoken?.segment?.text ?? null,
           },
         }
       })

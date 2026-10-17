@@ -57,6 +57,8 @@ export function startSearchUtility(
           (await ready).search(query, filter),
         similar: async ({ id, filter }: { id: number; filter: Filter }) =>
           (await ready).similar(id, filter),
+        searchVideo: async ({ id, query }: { id: number; query: string }) =>
+          (await ready).searchVideo(id, query),
       })
     } else if (data.peer === 'catalog') {
       catalog?.close()

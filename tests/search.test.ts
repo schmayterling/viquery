@@ -10,7 +10,7 @@ import { MessageChannel, type MessagePort } from 'node:worker_threads'
 import type { MessagePortMain } from 'electron'
 import { openDatabase } from '../src/catalog/schema.ts'
 import { startSearchUtility } from '../src/search/index.ts'
-import type { Filter, SearchResult } from '../src/shared/api.ts'
+import type { Filter, SceneMatch, SearchResult } from '../src/shared/api.ts'
 import { dataPaths } from '../src/shared/paths.ts'
 import { GENERATION, type TextEncoders } from '../src/shared/protocol.ts'
 import { connect, emit, type Port } from '../src/shared/rpc.ts'
@@ -76,7 +76,7 @@ function fixture(db: DatabaseSync) {
     sample.run(1, null, GENERATION.visual, null, bytes(vector(1, 512)))
   add(2, 'needle.jpg', 1, 20)
   file.run('/second/needle.jpg', 2, 2, 'needle.jpg')
-  sample.run(2, null, GENERATION.visual, null, bytes(vector(0.9, 512)))
+  sample.run(2, null, GENERATION.visual, null, bytes(vector(0.9995, 512)))
   add(3, 'needle.jpg', 2, 30, true)
   add(4, 'walk.mp4', 1, 40, false, true)
   add(5, 'lecture.mp4', 2, 50, false, true)
@@ -86,9 +86,9 @@ function fixture(db: DatabaseSync) {
   sample.run(8, null, GENERATION.visual, null, bytes(vector(1, 512)))
   const scene = db.prepare('insert into scene values(?, ?, ?, ?, ?)')
   for (const [id, start, end, score, ms] of [
-    [401, 0, 1000, 0.95, 500],
-    [402, 2500, 3500, 0.8, 2800],
-    [403, 5500, 6500, 0.7, 6000],
+    [401, 0, 1000, 0.999, 500],
+    [402, 2500, 3500, 0.998, 2800],
+    [403, 5500, 6500, 0.997, 6000],
   ]) {
     scene.run(id!, 4, GENERATION.visual, start!, end!)
     sample.run(4, id!, GENERATION.visual, ms!, bytes(vector(score!, 512)))
@@ -121,6 +121,96 @@ function fixture(db: DatabaseSync) {
     (2, 'visual', ${GENERATION.visual}, 'pending'), (4, 'speech', ${GENERATION.speech}, 'running'), (5, 'speech', ${GENERATION.speech}, 'failed')`)
   return { sample, file }
 }
+
+test('video rpc returns ordered heat, gated markers and speech-only scenes using cached query vectors', async (t) => {
+  const root = mkdtempSync(join(tmpdir(), 'viquery-video-search-'))
+  const db = openDatabase(dataPaths(root).db)
+  fixture(db)
+  db.exec('delete from transcript where media_id = 4')
+  const update = db.prepare(
+    'update sample set embedding = ? where scene_id = ?',
+  )
+  for (const [id, score] of [
+    [401, 0.31],
+    [402, 0.338],
+    [403, 0.19],
+  ])
+    update.run(bytes(vector(score!, 512)), id!)
+  // The later inserted sample is the winner, not the first sample or scene midpoint.
+  db.prepare(
+    'insert into sample(media_id, scene_id, generation, t_ms, embedding) values(4, 401, ?, 700, ?)',
+  ).run(GENERATION.visual, bytes(vector(0.34, 512)))
+  db.prepare(
+    'insert into scene values(405, 4, ?, 9000, 10000), (404, 4, ?, 7000, 9000), (406, 4, ?, 10000, 11000)',
+  ).run(GENERATION.visual, GENERATION.visual, GENERATION.visual - 1)
+  db.prepare(
+    "insert into transcript(media_id, generation, start_ms, end_ms, language, text, embedding) values(4, ?, 7200, 9500, 'en', 'ask what you can do for your country', ?)",
+  ).run(GENERATION.speech, bytes(vector(0.8, 384)))
+  let encoded = 0
+  const parent = new EventEmitter()
+  const utility = startSearchUtility(parent, async () => ({
+    clip: async (q) => {
+      encoded++
+      return vector(q === 'rocket' ? 1 : -1, 512)
+    },
+    sentence: async (q) => vector(q === 'rocket' ? -1 : 1, 384),
+  }))
+  const channel = new MessageChannel()
+  t.after(async () => {
+    await utility.close()
+    channel.port1.close()
+    db.close()
+    rmSync(root, { recursive: true, force: true })
+  })
+  parent.emit('message', {
+    data: {
+      type: 'init',
+      dataDir: root,
+      modelsDir: '',
+      ffmpeg: '',
+      ffprobe: '',
+    },
+    ports: [],
+  })
+  parent.emit('message', {
+    data: { type: 'port', peer: 'renderer' },
+    ports: [utilityPort(channel.port2)],
+  })
+  const client = connect(rpcPort(channel.port1))
+  await client.call('search', { query: 'rocket', filter: all })
+  const video = (query: string, id = 4) =>
+    client.call<SceneMatch[]>('searchVideo', { id, query })
+  const heat = await video('rocket')
+  assert.equal(encoded, 1, 'global and in-video search share cached encodings')
+  assert.deepEqual(
+    heat.map((s) => s.sceneId),
+    [401, 402, 403, 404, 405],
+  )
+  assert.ok(heat[0]!.score > heat[1]!.score && heat[1]!.score > heat[2]!.score)
+  assert.ok(heat.every((s) => s.score >= 0 && s.score <= 1))
+  assert.deepEqual(
+    heat.map((s) => s.match),
+    [true, true, false, false, false],
+  )
+  assert.equal(heat[0]!.seekMs, 700)
+  const spoken = await video('ask what you can do for your country')
+  assert.deepEqual(
+    spoken.map((s) => s.match),
+    [false, false, false, true, true],
+  )
+  assert.deepEqual(spoken[3], {
+    sceneId: 404,
+    startMs: 7000,
+    endMs: 9000,
+    seekMs: 7000,
+    score: 1,
+    match: true,
+    sources: ['speech', 'text'],
+    snippet: 'ask what you can do for your country',
+  })
+  assert.equal(spoken[4]!.seekMs, 9000, 'overlapping speech maps to each scene')
+  assert.deepEqual(await video('rocket', 99999), [])
+})
 
 test('search utility fuses branches, merges moments, filters, and refreshes rewritten/removed media over rpc', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'viquery-search-'))
@@ -192,7 +282,7 @@ test('search utility fuses branches, merges moments, filters, and refreshes rewr
     sceneId: 401,
     startMs: 0,
     endMs: 3500,
-    seekMs: 500,
+    seekMs: 800,
     sources: ['visual', 'text', 'speech'],
     snippet: 'needle in haystack',
   })
