@@ -127,9 +127,9 @@ export function createComputeApi(init: ComputeInit): ComputeApi {
       if (!Number.isSafeInteger(p.mediaId) || p.mediaId < 1)
         throw new Error('invalid media id')
       const segments: SpeechResult['segments'] = []
-      if (!(await media.probe(p.path)).hasAudio)
-        return { generation: GENERATION.speech, segments }
-      const spans = await media.audio(p.path)
+      const metadata = await media.probe(p.path)
+      if (!metadata.hasAudio) return { generation: GENERATION.speech, segments }
+      const spans = await media.audio(p.path, metadata.durationMs as number)
       if (!spans.length) return { generation: GENERATION.speech, segments }
       speechEncoder ??= loadSpeechEncoder(init.modelsDir)
       sentenceEncoder ??= loadSentenceEncoder(init.modelsDir)
