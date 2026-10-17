@@ -4,34 +4,19 @@ import {
   ChevronRight,
   FolderOpen,
   Info,
-  Maximize,
-  Pause,
-  Play,
-  SkipBack,
-  SkipForward,
-  Volume2,
-  VolumeX,
-  X,
 } from 'lucide-react'
-import {
-  type PointerEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   type Folder,
   type MediaId,
   type MediaItem,
   type Moment,
   mediaUrl,
-  type Scene,
 } from '../../shared/api'
-import { at, bytes, count, longDay, num, span, timecode } from './format'
+import { at, bytes, longDay, num, timecode } from './format'
 import { hideBroken, type Open } from './Grid'
 import { ensureItems, getItem, useItemsVersion } from './items'
+import { Player } from './Player'
 
 export type ViewerState = {
   mode: Open
@@ -66,8 +51,13 @@ export function Viewer(props: Props) {
   }, [props.ids, props.index, id])
   const item = getItem(id)
   const ref = useRef<HTMLDivElement>(null)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refocus when the mode changes
-  useEffect(() => ref.current?.focus({ preventScroll: true }), [props.mode])
+  // the video player takes keyboard focus itself (its shortcuts need it); otherwise the viewer
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refocus when the mode or item changes
+  useEffect(() => {
+    const target =
+      ref.current?.querySelector<HTMLElement>('[data-autofocus]') ?? ref.current
+    target?.focus({ preventScroll: true })
+  }, [props.mode, id, item !== undefined])
 
   const go = (step: number) => {
     const index = props.index + step
@@ -198,11 +188,14 @@ export function Viewer(props: Props) {
               key={id}
               item={item}
               folder={folder}
-              moments={moments}
-              query={props.query}
-              onClearQuery={() =>
-                props.onChange({ ...props, query: undefined })
+              query={props.query ?? ''}
+              start={moments?.[0] ? Math.max(0, moments[0].startMs - 1000) : 0}
+              poster={
+                moments?.[0]
+                  ? mediaUrl.frame(id, moments[0].seekMs)
+                  : mediaUrl.thumb(id)
               }
+              missing={<Missing item={item} folder={folder} />}
             />
           ) : (
             <ImageView
@@ -396,349 +389,5 @@ function InfoPanel({
         <dd>{item.path}</dd>
       </dl>
     </aside>
-  )
-}
-
-const SPEEDS = [0.5, 1, 1.25, 1.5, 2]
-
-function Player(props: {
-  item: MediaItem
-  folder: Folder | undefined
-  moments: Moment[] | undefined
-  query: string | undefined
-  onClearQuery: () => void
-}) {
-  const { item, moments } = props
-  const video = useRef<HTMLVideoElement>(null)
-  const played = useRef<HTMLDivElement>(null)
-  const knob = useRef<HTMLDivElement>(null)
-  const strip = useRef<HTMLElement>(null)
-  const [t, setT] = useState(0)
-  const [playing, setPlaying] = useState(false)
-  const [muted, setMuted] = useState(false)
-  const [volume, setVolume] = useState(1)
-  const [rate, setRate] = useState(1)
-  const [missing, setMissing] = useState(false)
-  const [scenes, setScenes] = useState<Scene[]>([])
-  const [hover, setHover] = useState<number | null>(null)
-  const duration = item.durationMs ?? 0
-  const start = moments?.[0] ? Math.max(0, moments[0].startMs - 1000) : 0
-
-  useEffect(() => {
-    window.viquery.scenes(item.id).then(setScenes)
-  }, [item.id])
-
-  // playhead follows every frame while playing; text updates ride timeupdate
-  useEffect(() => {
-    if (!playing) return
-    let raf = 0
-    const tick = () => {
-      const v = video.current
-      if (v && duration) {
-        const p = Math.min(1, (v.currentTime * 1000) / duration)
-        played.current?.style.setProperty('transform', `scaleX(${p})`)
-        knob.current?.style.setProperty('left', `${p * 100}%`)
-      }
-      raf = requestAnimationFrame(tick)
-    }
-    raf = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf)
-  }, [playing, duration])
-
-  const seek = (ms: number) => {
-    const v = video.current
-    if (!v) return
-    v.currentTime = Math.max(0, Math.min(duration, ms)) / 1000
-    setT(v.currentTime * 1000)
-  }
-  const toggle = () => {
-    const v = video.current
-    if (v) v.paused ? v.play() : v.pause()
-  }
-  const matchAt = moments
-    ? moments.findIndex((m) => t >= m.startMs - 1000 && t < m.endMs)
-    : -1
-  const jump = (step: 1 | -1) => {
-    if (!moments?.length) return
-    const sorted = [...moments].sort((a, b) => a.startMs - b.startMs)
-    const target =
-      step > 0
-        ? sorted.find((m) => m.startMs - 1000 > t + 500)
-        : [...sorted].reverse().find((m) => m.startMs - 1000 < t - 1500)
-    if (target) seek(target.startMs - 1000)
-  }
-
-  const currentScene = scenes.findIndex((s) => t >= s.startMs && t < s.endMs)
-  const matching = useMemo(
-    () => new Set(moments?.map((m) => m.sceneId)),
-    [moments],
-  )
-  // keep the playing scene in view
-  useEffect(() => {
-    if (currentScene < 0) return
-    strip.current?.children[currentScene]?.scrollIntoView({
-      inline: 'nearest',
-      block: 'nearest',
-      behavior: reducedMotion.matches ? 'instant' : 'smooth',
-    })
-  }, [currentScene])
-
-  const onKeyDown = (e: React.KeyboardEvent) => {
-    if ((e.target as HTMLElement).matches('input, select')) return
-    const k = e.key
-    if (k === ' ' || k === 'k') toggle()
-    else if (k === 'j' || k === 'l') seek(t + (k === 'j' ? -10_000 : 10_000))
-    else if (k === ']' || k === 'n') jump(1)
-    else if (k === '[' || k === 'N') jump(-1)
-    else if (k === 'm') setMuted(!muted)
-    else if (k === 'f') video.current?.parentElement?.requestFullscreen()
-    else return
-    e.preventDefault()
-    e.stopPropagation()
-  }
-
-  const fromPointer = (e: PointerEvent<HTMLElement>) => {
-    const r = e.currentTarget.getBoundingClientRect()
-    return Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)) * duration
-  }
-  const sprite = item.sprite
-  const previewFrame =
-    hover !== null && sprite
-      ? Math.min(
-          sprite.frames - 1,
-          Math.floor((hover / duration) * sprite.frames),
-        )
-      : 0
-  const p = duration ? Math.min(1, t / duration) : 0
-
-  return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: player shortcuts (design §7)
-    <div className="player" onKeyDown={onKeyDown}>
-      <div className="stage">
-        {missing ? (
-          <Missing item={item} folder={props.folder} />
-        ) : (
-          <video
-            ref={video}
-            src={mediaUrl.original(item.id)}
-            poster={
-              moments?.[0]
-                ? mediaUrl.frame(item.id, moments[0].seekMs)
-                : mediaUrl.thumb(item.id)
-            }
-            muted={muted}
-            onClick={toggle}
-            onLoadedMetadata={(e) => {
-              e.currentTarget.currentTime = start / 1000
-              setT(start)
-              if (!reducedMotion.matches) e.currentTarget.play().catch(() => {})
-            }}
-            onTimeUpdate={(e) => setT(e.currentTarget.currentTime * 1000)}
-            onPlay={() => setPlaying(true)}
-            onPause={() => setPlaying(false)}
-            onError={() => setMissing(true)}
-          />
-        )}
-      </div>
-      <div className="controls">
-        <div
-          className="seek"
-          role="slider"
-          tabIndex={0}
-          aria-label="Seek"
-          aria-valuemin={0}
-          aria-valuemax={Math.round(duration / 1000)}
-          aria-valuenow={Math.round(t / 1000)}
-          aria-valuetext={`${timecode(t)} of ${timecode(duration)}`}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-              e.preventDefault()
-              e.stopPropagation()
-              seek(t + (e.key === 'ArrowLeft' ? -5000 : 5000))
-            }
-          }}
-          onPointerDown={(e) => {
-            e.currentTarget.setPointerCapture(e.pointerId)
-            seek(fromPointer(e))
-          }}
-          onPointerMove={(e) => {
-            setHover(fromPointer(e))
-            if (e.buttons === 1) seek(fromPointer(e))
-          }}
-          onPointerLeave={() => setHover(null)}
-        >
-          <div className="track">
-            <div
-              ref={played}
-              className="played"
-              style={{ transform: `scaleX(${p})` }}
-            />
-            {moments?.map((m, k) => (
-              <i
-                key={m.sceneId}
-                className="mark"
-                data-current={k === matchAt || undefined}
-                style={{
-                  left: `${(m.startMs / duration) * 100}%`,
-                  width: `${((m.endMs - m.startMs) / duration) * 100}%`,
-                }}
-              />
-            ))}
-          </div>
-          <div ref={knob} className="head" style={{ left: `${p * 100}%` }} />
-          {hover !== null && (
-            <div
-              className="preview"
-              style={{ left: `${(hover / duration) * 100}%` }}
-            >
-              {sprite && (
-                <div
-                  className="frame"
-                  style={{
-                    backgroundImage: `url("${mediaUrl.sprite(item.id)}")`,
-                    backgroundSize: `${sprite.columns * 100}% ${sprite.rows * 100}%`,
-                    backgroundPosition: `${sprite.columns > 1 ? ((previewFrame % sprite.columns) / (sprite.columns - 1)) * 100 : 0}% ${sprite.rows > 1 ? (Math.floor(previewFrame / sprite.columns) / (sprite.rows - 1)) * 100 : 0}%`,
-                  }}
-                />
-              )}
-              <span>{timecode(hover)}</span>
-            </div>
-          )}
-        </div>
-        <div className="controls-row">
-          {moments && (
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label="Previous match ([)"
-              title="Previous match ([)"
-              onClick={() => jump(-1)}
-            >
-              <SkipBack aria-hidden="true" />
-            </button>
-          )}
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label={playing ? 'Pause (K)' : 'Play (K)'}
-            onClick={toggle}
-          >
-            {playing ? (
-              <Pause aria-hidden="true" />
-            ) : (
-              <Play aria-hidden="true" />
-            )}
-          </button>
-          {moments && (
-            <button
-              type="button"
-              className="icon-btn"
-              aria-label="Next match (])"
-              title="Next match (])"
-              onClick={() => jump(1)}
-            >
-              <SkipForward aria-hidden="true" />
-            </button>
-          )}
-          <span className="time">
-            {timecode(t)} / {timecode(duration)}
-          </span>
-          {moments && props.query && (
-            <span className="query-chip">
-              <span>
-                {count(moments.length, 'match', 'matches')} for “{props.query}”
-              </span>
-              <button
-                type="button"
-                aria-label="Clear matches"
-                onClick={props.onClearQuery}
-              >
-                <X aria-hidden="true" />
-              </button>
-            </span>
-          )}
-          <span className="spacer" />
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label={muted ? 'Unmute (M)' : 'Mute (M)'}
-            onClick={() => setMuted(!muted)}
-          >
-            {muted || volume === 0 ? (
-              <VolumeX aria-hidden="true" />
-            ) : (
-              <Volume2 aria-hidden="true" />
-            )}
-          </button>
-          <input
-            type="range"
-            min={0}
-            max={1}
-            step={0.05}
-            value={muted ? 0 : volume}
-            aria-label="Volume"
-            onChange={(e) => {
-              const v = Number(e.target.value)
-              setVolume(v)
-              setMuted(v === 0)
-              if (video.current) video.current.volume = v
-            }}
-          />
-          <select
-            aria-label="Playback speed"
-            value={rate}
-            onChange={(e) => {
-              const r = Number(e.target.value)
-              setRate(r)
-              if (video.current) video.current.playbackRate = r
-            }}
-          >
-            {SPEEDS.map((s) => (
-              <option key={s} value={s}>
-                {s}×
-              </option>
-            ))}
-          </select>
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label="Full screen (F)"
-            onClick={() => video.current?.parentElement?.requestFullscreen()}
-          >
-            <Maximize aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-      {scenes.length > 0 && (
-        <nav
-          ref={strip}
-          className="scenes"
-          aria-label={count(scenes.length, 'scene')}
-        >
-          {scenes.map((s, k) => (
-            <button
-              key={s.id}
-              type="button"
-              className="scene"
-              data-match={(props.query && matching.has(s.id)) || undefined}
-              aria-current={k === currentScene}
-              aria-label={`${props.query && matching.has(s.id) ? 'Match, ' : ''}${span(s.startMs, s.endMs)}`}
-              onClick={() => seek(s.startMs)}
-            >
-              <img
-                src={mediaUrl.frame(item.id, s.frameMs)}
-                alt=""
-                loading="lazy"
-                decoding="async"
-                onError={hideBroken}
-              />
-              {props.query && matching.has(s.id) && (
-                <span className="range">{span(s.startMs, s.endMs)}</span>
-              )}
-            </button>
-          ))}
-        </nav>
-      )}
-    </div>
   )
 }

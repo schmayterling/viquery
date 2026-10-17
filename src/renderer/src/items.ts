@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from 'react'
-import type { MediaId, MediaItem } from '../../shared/api'
+import type { IndexPhase, MediaId, MediaItem } from '../../shared/api'
 
 // MediaItem cache. the columnar LibraryIndex lays out the grid; full items (names, sprites) are
 // fetched only for what is on screen or opened, batched into one items() call per tick.
@@ -46,3 +46,21 @@ const subscribe = (l: () => void) => {
 }
 export const useItemsVersion = () =>
   useSyncExternalStore(subscribe, () => version)
+
+// latest indexing phase, for views that only need to know whether work is still pending
+let phase: IndexPhase | null = null
+let watching = false
+const phaseListeners = new Set<() => void>()
+const subscribePhase = (l: () => void) => {
+  if (!watching) {
+    watching = true
+    window.viquery.onIndex((s) => {
+      phase = s
+      for (const p of phaseListeners) p()
+    })
+  }
+  phaseListeners.add(l)
+  return () => phaseListeners.delete(l)
+}
+export const useIndexPhase = () =>
+  useSyncExternalStore(subscribePhase, () => phase)
