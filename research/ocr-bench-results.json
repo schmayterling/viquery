@@ -1,0 +1,460 @@
+{
+  "date": "2026-10-17",
+  "hardware": "apple m2 cpu, 8 logical cores, 24 gib ram",
+  "runtime": "node 26.8.1; ffmpeg 9.0.1; onnxruntime-node 1.30.0 cpu; electron 44.9.0",
+  "threads": {
+    "ortIntra": 2,
+    "ortInter": 1,
+    "sharp": 1
+  },
+  "method": {
+    "runs": 5,
+    "warmups": 1,
+    "scope": "latencies include preprocessing, detection, recognition; pipeline additionally includes image decode, minilm, and keyframe thumbnails",
+    "accuracy": "character edit rate after case and whitespace normalization; tiny synthetic corpus, not a production accuracy estimate"
+  },
+  "truth": {
+    "screenshot": "PROJECT AURORA\nQUARTERLY REVENUE REPORT\nLaunch scheduled October 2026\nOffline search keeps your files private\nBudget approved 125000 dollars",
+    "japanese": "東京都の図書館\n日本語の文字を検索します\n画像と動画の検索",
+    "card": "ORBITAL ARCHIVE",
+    "photo": ""
+  },
+  "candidates": {
+    "paddleocr": {
+      "candidate": "paddleocr",
+      "loadMs": 125.730208,
+      "threads": 2,
+      "runs": 5,
+      "fixtures": {
+        "screenshot": {
+          "ms": [
+            602.652541,
+            582.9191660000001,
+            544.0341660000001,
+            611.4772910000002,
+            573.7979169999999
+          ],
+          "text": "PROJECT AURORA\nQUARTERLY REVENUE REPORT\nLaunch scheduled October 2026\nOffline search keeps your files private\nBudget approved 125000 dollars"
+        },
+        "japanese": {
+          "ms": [
+            421.84508299999925,
+            371.9269170000007,
+            370.0473750000001,
+            387.99395899999945,
+            402.45737499999996
+          ],
+          "text": "東京都の図書館\n日本語の文字を検索します\n画像と動画の検索"
+        },
+        "photo": {
+          "ms": [
+            26.137375000000247,
+            28.632582999999613,
+            27.57574999999997,
+            26.188000000000102,
+            26.37779099999989
+          ],
+          "text": ""
+        },
+        "card": {
+          "ms": [
+            139.54458299999988,
+            144.94458300000042,
+            140.9032500000003,
+            136.96249999999964,
+            142.136125
+          ],
+          "text": "ORBITAL ARCHIVE"
+        }
+      }
+    },
+    "ppu": {
+      "candidate": "ppu",
+      "loadMs": 1407.750709,
+      "threads": 2,
+      "runs": 5,
+      "fixtures": {
+        "screenshot": {
+          "ms": [
+            510.5889579999998,
+            547.875959,
+            522.832042,
+            517.8141250000003,
+            547.402709
+          ],
+          "text": "QUARTeRLY REveNUE REPORT\nLaunch scheduled October 2026\nOff ine search keeps your files private\nBudget approved 125000 dollars"
+        },
+        "japanese": {
+          "ms": [
+            368.4200839999994,
+            360.2420830000001,
+            381.85199999999986,
+            382.3923340000001,
+            348.67229099999986
+          ],
+          "text": "日本語の文字を検索します\n画像と動画の検索"
+        },
+        "photo": {
+          "ms": [
+            23.55029099999956,
+            25.737457999999606,
+            18.70983299999989,
+            18.701332999999977,
+            23.366250000000036
+          ],
+          "text": ""
+        },
+        "card": {
+          "ms": [
+            131.22487499999988,
+            129.70433299999968,
+            132.83058400000027,
+            139.8678749999999,
+            122.17075000000023
+          ],
+          "text": "ORBITAL ARCHIVE"
+        }
+      }
+    },
+    "gutenye": {
+      "candidate": "gutenye",
+      "loadMs": 336.564792,
+      "threads": 2,
+      "runs": 5,
+      "fixtures": {
+        "screenshot": {
+          "ms": [
+            727.29475,
+            728.5431669999998,
+            739.4919999999997,
+            787.3167080000003,
+            752.440834
+          ],
+          "text": "PROJECTAURORA\nQUARTERLYREVENUEREPORT\nLaunch scheduled October 2026\nOffline search keeps your files private\nBudget approved 125000 dollars"
+        },
+        "japanese": {
+          "ms": [
+            472.6105830000006,
+            453.59608299999945,
+            451.4974170000005,
+            463.8105000000005,
+            493.2532919999994
+          ],
+          "text": "東京都の書館\n日本语の文字索\n画像動画の索"
+        },
+        "photo": {
+          "ms": [
+            34.25233399999979,
+            38.8120829999998,
+            40.7026249999999,
+            35.99608399999943,
+            36.17854199999965
+          ],
+          "text": ""
+        },
+        "card": {
+          "ms": [
+            188.4507080000003,
+            162.82637500000055,
+            166.3943330000002,
+            169.93845900000088,
+            159.96829199999956
+          ],
+          "text": "ORBITALARCHIVE"
+        }
+      }
+    },
+    "esearch": {
+      "candidate": "esearch",
+      "loadMs": 373.958208,
+      "threads": 2,
+      "runs": 5,
+      "fixtures": {
+        "screenshot": {
+          "ms": [
+            1040.6262500000003,
+            1000.740166,
+            984.7786250000004,
+            951.9758339999998,
+            963.8674580000006
+          ],
+          "text": "PROJECT AURORA\nQUARTERLY REVENUE REPORT\nLaunch scheduled October 2026\nOffline search keeps your files private\nBudget approved 125000 dollars"
+        },
+        "japanese": {
+          "ms": [
+            770.7573750000001,
+            839.0070419999993,
+            915.8349579999995,
+            1089.424332999999,
+            915.9265829999986
+          ],
+          "text": "東京都の図書館\n日本語の文字を検索します\n画像と動画の検索"
+        },
+        "photo": {
+          "ms": [
+            119.36624999999913,
+            96.05754200000047,
+            111.47908300000017,
+            72.98883299999943,
+            90.12612499999886
+          ],
+          "text": ""
+        },
+        "card": {
+          "ms": [
+            488.50374999999985,
+            426.68533300000126,
+            442.31833299999926,
+            395.35162499999933,
+            378.32458300000144
+          ],
+          "text": "ORBITAL ARCHIVE"
+        }
+      }
+    },
+    "raw": {
+      "candidate": "raw",
+      "loadMs": 117.55504199999999,
+      "threads": 2,
+      "runs": 5,
+      "fixtures": {
+        "screenshot": {
+          "ms": [
+            520.393833,
+            545.8663329999999,
+            587.9753329999999,
+            529.101666,
+            485.5488330000003
+          ],
+          "text": "PROJECT AURORA\nQUARTERLY REVENUE REPORT\nLaunch scheduled October 2026\nOffline search keeps your files private\nBudget approved 125000 dollars"
+        },
+        "japanese": {
+          "ms": [
+            422.75658299999986,
+            375.8084170000002,
+            338.55375000000004,
+            386.1051669999997,
+            393.3481249999995
+          ],
+          "text": "東京都の図書館\n日本語の文字を検索します\n画像と動画の検索"
+        },
+        "photo": {
+          "ms": [
+            30.793375000000196,
+            24.755417000000307,
+            28.312832999999955,
+            27.66966600000069,
+            28.376999999999498
+          ],
+          "text": ""
+        },
+        "card": {
+          "ms": [
+            147.36041599999953,
+            142.94991599999958,
+            141.5007080000005,
+            153.73750000000018,
+            159.7913749999998
+          ],
+          "text": "ORBITAL ARCHIVE"
+        }
+      }
+    },
+    "tesseract": {
+      "candidate": "tesseract",
+      "loadMs": 339.18437500000005,
+      "threads": 2,
+      "runs": 5,
+      "fixtures": {
+        "screenshot": {
+          "ms": [
+            197.10970899999995,
+            191.66608299999996,
+            184.92149999999992,
+            181.91208299999994,
+            186.33966699999996
+          ],
+          "text": "PROJECT AURORA\n\nQUARTERLY REVENUE REPORT\nLaunch scheduled October 2026\nOffline search keeps your files private\nBudget approved 125000 dollars\n"
+        },
+        "japanese": {
+          "ms": [
+            141.13850000000002,
+            155.018417,
+            164.88283300000012,
+            148.54783399999997,
+            145.12645800000018
+          ],
+          "text": "東京 都 の 図書 館\n日 本 語 の 文字 を 検索 し ます\n画像 と 動画 の 検索\n"
+        },
+        "photo": {
+          "ms": [
+            105.19650000000001,
+            106.50779200000034,
+            104.87733299999991,
+            106.33920800000033,
+            102.35466699999961
+          ],
+          "text": "K\n<< :\n9\n"
+        },
+        "card": {
+          "ms": [
+            32.00820900000008,
+            39.06404100000009,
+            36.4270419999998,
+            39.239874999999756,
+            41.452584000000115
+          ],
+          "text": "ORBITAL ARCHIVE\n"
+        }
+      }
+    }
+  },
+  "keyframes": {
+    "seeks": [
+      {
+        "requestedMs": 137400,
+        "decodedMs": 130000,
+        "ms": 73.00749999999971
+      },
+      {
+        "requestedMs": 297400,
+        "decodedMs": 290000,
+        "ms": 66.8817910000007
+      },
+      {
+        "requestedMs": 487400,
+        "decodedMs": 480000,
+        "ms": 65.93516699999964
+      },
+      {
+        "requestedMs": 598000,
+        "decodedMs": 590000,
+        "ms": 74.46374999999989
+      },
+      {
+        "requestedMs": 297400,
+        "decodedMs": 290000,
+        "ms": 61.68975000000046
+      }
+    ],
+    "sizes": {
+      "320": {
+        "ms": [
+          52.41899999999987,
+          49.00404100000014,
+          44.213040999999976,
+          42.422083000000384,
+          43.16087500000049
+        ],
+        "text": "E"
+      },
+      "1280": {
+        "ms": [
+          348.56674999999996,
+          292.7639169999993,
+          280.20216699999946,
+          276.61404200000015,
+          269.66600000000017
+        ],
+        "text": "Emergency evacuation route: use the northern exit"
+      }
+    }
+  },
+  "pipeline": {
+    "coldScreenshotMs": 491.41999999999996,
+    "runs": 5,
+    "measurements": {
+      "screenshot": {
+        "ms": [
+          293.7331670000001,
+          302.3955410000001,
+          288.1619169999999,
+          277.5045,
+          284.894417
+        ],
+        "spans": [
+          {
+            "tMs": null,
+            "text": "PROJECT AURORA"
+          },
+          {
+            "tMs": null,
+            "text": "QUARTERLY REVENUE REPORT"
+          },
+          {
+            "tMs": null,
+            "text": "Launch scheduled October 2026"
+          },
+          {
+            "tMs": null,
+            "text": "Offline search keeps your files private"
+          },
+          {
+            "tMs": null,
+            "text": "Budget approved 125000 dollars"
+          }
+        ]
+      },
+      "photo": {
+        "ms": [
+          17.89916600000015,
+          17.136375000000044,
+          18.95358299999998,
+          17.344208999999864,
+          17.84304199999997
+        ],
+        "spans": []
+      },
+      "captionImage": {
+        "ms": [
+          651.144292,
+          354.1587919999997,
+          357.0388750000002,
+          351.5810419999998,
+          357.6930419999999
+        ],
+        "spans": [
+          {
+            "tMs": null,
+            "text": "Emergency evacuation route: use the northern exit"
+          }
+        ]
+      },
+      "videoMinute": {
+        "ms": [
+          2246.399791,
+          2376.804791999999,
+          2301.246167000001,
+          2301.384417000001,
+          2294.8865829999995
+        ],
+        "spans": [
+          {
+            "tMs": 0,
+            "text": "Emergency evacuation route: use the northern exit"
+          },
+          {
+            "tMs": 10000,
+            "text": "Emergency evacuation route: use the northern exit"
+          },
+          {
+            "tMs": 20000,
+            "text": "Emergency evacuation route: use the northern exit"
+          },
+          {
+            "tMs": 30000,
+            "text": "Emergency evacuation route: use the northern exit"
+          },
+          {
+            "tMs": 40000,
+            "text": "Emergency evacuation route: use the northern exit"
+          },
+          {
+            "tMs": 50000,
+            "text": "Emergency evacuation route: use the northern exit"
+          }
+        ]
+      }
+    }
+  }
+}
