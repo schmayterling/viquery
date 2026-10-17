@@ -42,6 +42,9 @@ test('catalog fixture: content identity, aliases, phased jobs, retries, resume a
     recursive: true,
   })
   await cp(join(library, 'cat.jpg'), join(library, 'cat-copy.jpg'))
+  await cp(join(library, 'cat.jpg'), join(library, '._cat.jpg'))
+  await mkdir(join(library, '@eaDir'))
+  await cp(join(library, 'cat.jpg'), join(library, '@eaDir', 'thumb.jpg'))
   const calls: string[] = []
   const changes: CatalogChange[] = []
   let thumbs = 0
@@ -134,6 +137,11 @@ test('catalog fixture: content identity, aliases, phased jobs, retries, resume a
   await catalog.settled()
   assert.equal(calls.length, 0)
   assert.equal(catalog.library(all).ids.length, 3)
+  assert.equal(catalog.libraryStats().all, 3)
+  assert.equal(
+    catalog.items([catalog.library(all).ids[0] as number])[0]?.ready,
+    false,
+  )
   const dbPath = dataPaths(dataDir).db
   let db = new DatabaseSync(dbPath, { readOnly: true })
   t.after(() => {

@@ -4,6 +4,7 @@
 import {
   type Folder,
   type IndexPhase,
+  type LibraryChange,
   type LibraryIndex,
   type MediaId,
   type MediaItem,
@@ -152,6 +153,7 @@ function item(id: MediaId): MediaItem {
       : `IMG_${n}.HEIC`
   return {
     id,
+    ready: true,
     kind: video ? 'video' : 'image',
     folderId: folder.id,
     name,
@@ -258,7 +260,7 @@ function sceneMatches(id: MediaId, query: string): SceneMatch[] {
 // ---- index progress ----
 const index = { done: 1284, total: 2538, paused: false, failed: 3 }
 const indexListeners = new Set<(s: IndexPhase) => void>()
-const changeListeners = new Set<() => void>()
+const changeListeners = new Set<(change: LibraryChange) => void>()
 const phase = (): IndexPhase =>
   index.done >= index.total
     ? { phase: 'idle', items: N, failed: index.failed }
@@ -279,7 +281,8 @@ setInterval(() => {
   for (const l of indexListeners) l(phase())
 }, 400)
 const changed = () => {
-  for (const l of changeListeners) l()
+  for (const l of changeListeners)
+    l({ changedMedia: [], removedMedia: [], listing: true })
 }
 
 // ---- fake search ----
@@ -671,6 +674,21 @@ export async function install() {
       changed()
     },
     reveal: async (id) => console.info('mock reveal', item(id).path),
+    libraryStats: () => {
+      const rows = select({ scope: { kind: 'all' }, media: 'all' })
+      const video = rows.filter((i) => lib.kind[i]).length
+      return later({
+        all: rows.length,
+        image: rows.length - video,
+        video,
+        recent: select({ scope: { kind: 'recent' }, media: 'all' }).length,
+        years: [
+          ...new Set(
+            rows.map((i) => new Date(at(lib.takenAt, i)).getFullYear()),
+          ),
+        ].sort((a, b) => b - a),
+      })
+    },
     library: (filter) => {
       const rows = select(filter)
       const out: LibraryIndex = {

@@ -8,7 +8,9 @@ import type {
   Filter,
   Folder,
   IndexPhase,
+  LibraryChange,
   LibraryIndex,
+  LibraryStats,
   MediaItem,
   Scene,
   TranscriptSegment,
@@ -130,7 +132,7 @@ async function contentHash(path: string, size: number): Promise<Buffer> {
 
 export class Catalog extends EventEmitter<{
   index: [IndexPhase]
-  libraryChanged: []
+  libraryChanged: [LibraryChange]
   change: [CatalogChange]
   warning: [Error]
 }> {
@@ -148,6 +150,8 @@ export class Catalog extends EventEmitter<{
   private roots = new Map<number, { dev: number; ino: number }>()
   private removed = new Set<number>()
   private libraryDirty = false
+  private listingDirty = false
+  private libraryCache = new Map<string, LibraryIndex>()
   private changeTimer: ReturnType<typeof setTimeout> | undefined
   private progressTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -172,6 +176,46 @@ export class Catalog extends EventEmitter<{
         ).run(row.id)
     }
     this.enqueue()
+    // TEMP triggers maintain progress at each single-writer mutation, not by scanning jobs per tick.
+    this.db.exec(`
+      create temp table job_count(stage text,kind integer,state text,n integer,
+        primary key(stage,kind,state)) without rowid;
+      insert into job_count select j.stage,m.kind,j.state,count(*) from job j
+        join media m on m.id=j.media_id where exists(select 1 from file where media_id=m.id)
+        group by j.stage,m.kind,j.state;
+    `)
+    const adjust = (row: 'old' | 'new', delta: number) => `
+      insert into job_count values(${row}.stage,(select kind from media where id=${row}.media_id),${row}.state,${delta})
+      on conflict(stage,kind,state) do update set n=n+excluded.n;`
+    for (const [event, row, delta] of [
+      ['insert', 'new', 1],
+      ['delete', 'old', -1],
+    ] as const)
+      this.db.exec(`create temp trigger job_count_${event} after ${event} on main.job
+        when exists(select 1 from file where media_id=${row}.media_id)
+        begin ${adjust(row, delta)} end`)
+    this.db.exec(`create temp trigger job_count_update after update on main.job
+      when exists(select 1 from file where media_id=new.media_id)
+      begin ${adjust('old', -1)} ${adjust('new', 1)} end`)
+    const visibility = (row: 'old' | 'new', delta: number) => `
+      insert into job_count select j.stage,m.kind,j.state,${delta}*count(*)
+      from job j join media m on m.id=j.media_id where m.id=${row}.media_id
+      group by j.stage,m.kind,j.state
+      on conflict(stage,kind,state) do update set n=n+excluded.n;`
+    this.db.exec(`
+      create temp trigger job_visible_insert after insert on main.file
+      when (select count(*) from file where media_id=new.media_id)=1
+      begin ${visibility('new', 1)} end;
+      create temp trigger job_visible_delete after delete on main.file
+      when not exists(select 1 from file where media_id=old.media_id)
+      begin ${visibility('old', -1)} end;
+      create temp trigger job_visible_update_old after update of media_id on main.file
+      when old.media_id!=new.media_id and not exists(select 1 from file where media_id=old.media_id)
+      begin ${visibility('old', -1)} end;
+      create temp trigger job_visible_update_new after update of media_id on main.file
+      when old.media_id!=new.media_id and (select count(*) from file where media_id=new.media_id)=1
+      begin ${visibility('new', 1)} end;
+    `)
   }
 
   private stmt(sql: string): StatementSync {
@@ -270,7 +314,7 @@ export class Catalog extends EventEmitter<{
       )
       return row
     })
-    this.notify([])
+    this.notify([], true)
     // Register the scan synchronously so settled()/close() also wait for discovery.
     const ready = beforeScan?.(canonical, folder.id)
     void this.rescan(folder.id, ready).catch((error) =>
@@ -287,7 +331,10 @@ export class Catalog extends EventEmitter<{
     transaction(this.db, () =>
       this.stmt('delete from folder where id=?').run(id),
     )
-    this.notify(affected.map((row) => row.media_id))
+    this.notify(
+      affected.map((row) => row.media_id),
+      true,
+    )
     this.progress()
   }
 
@@ -300,6 +347,9 @@ export class Catalog extends EventEmitter<{
   }
 
   library(filter: Filter): LibraryIndex {
+    const cacheKey = JSON.stringify(filter)
+    const cached = this.libraryCache.get(cacheKey)
+    if (cached) return cached
     const where = ['exists(select 1 from file f where f.media_id=m.id)']
     const params: SQLInputValue[] = []
     if (filter.scope.kind === 'folder') {
@@ -324,26 +374,62 @@ export class Catalog extends EventEmitter<{
       where.push('m.taken_at<?')
       params.push(filter.takenTo)
     }
-    const rows = this.all<MediaRow & { ready: number }>(
-      `select m.*,exists(select 1 from job j where j.media_id=m.id and j.stage='thumb' and j.state='done') as ready
-      from media m where ${where.join(' and ')}
-      order by m.taken_at desc,m.id desc`,
-      ...params,
+    const statement = this.stmt(
+      `select m.id,m.width,m.height,m.kind,m.taken_at,m.duration_ms,
+      exists(select 1 from job j where j.media_id=m.id and j.stage='thumb' and j.state='done')
+      from media m where ${where.join(' and ')} order by m.taken_at desc,m.id desc`,
     )
-    return {
-      ids: Uint32Array.from(rows, (row) => row.id),
-      ready: Uint8Array.from(rows, (row) => row.ready),
-      aspect: Float32Array.from(rows, (row) => row.width / row.height),
-      kind: Uint8Array.from(rows, (row) => row.kind),
-      takenAt: Float64Array.from(rows, (row) => row.taken_at),
-      durationMs: Uint32Array.from(rows, (row) => row.duration_ms ?? 0),
+    statement.setReturnArrays(true)
+    const rows = statement.all(...params) as unknown as [
+      number,
+      number,
+      number,
+      number,
+      number,
+      number | null,
+      number,
+    ][]
+    const result: LibraryIndex = {
+      ids: new Uint32Array(rows.length),
+      ready: new Uint8Array(rows.length),
+      aspect: new Float32Array(rows.length),
+      kind: new Uint8Array(rows.length),
+      takenAt: new Float64Array(rows.length),
+      durationMs: new Uint32Array(rows.length),
     }
+    rows.forEach(([id, width, height, kind, taken, duration, ready], i) => {
+      result.ids[i] = id
+      result.ready[i] = ready
+      result.aspect[i] = width / height
+      result.kind[i] = kind
+      result.takenAt[i] = taken
+      result.durationMs[i] = duration ?? 0
+    })
+    this.libraryCache.clear()
+    if (filter.scope.kind !== 'recent') this.libraryCache.set(cacheKey, result)
+    return result
+  }
+
+  libraryStats(): LibraryStats {
+    const counts = this.one<Omit<LibraryStats, 'years'>>(
+      `
+      select count(*) as "all",coalesce(sum(kind=0),0) as image,coalesce(sum(kind=1),0) as video,
+      coalesce(sum(added_at>=?),0) as recent from media m
+      where exists(select 1 from file where media_id=m.id)`,
+      Date.now() - 30 * 86400000,
+    ) as Omit<LibraryStats, 'years'>
+    const years = this.all<{ year: number }>(`select distinct
+      cast(strftime('%Y',taken_at/1000,'unixepoch','localtime') as integer) as year
+      from media m where exists(select 1 from file where media_id=m.id) order by year desc`).map(
+      (r) => r.year,
+    )
+    return { ...counts, years }
   }
 
   items(ids: number[]): MediaItem[] {
     return ids.flatMap((id) => {
-      const row = this.one<MediaRow>(
-        `select m.*,f.folder_id,f.name,f.path from media m
+      const row = this.one<MediaRow & { ready: number }>(
+        `select m.*,f.folder_id,f.name,f.path,exists(select 1 from job where media_id=m.id and stage='thumb' and state='done') as ready from media m
         join file f on f.id=(select min(id) from file where media_id=m.id) where m.id=?`,
         id,
       )
@@ -351,6 +437,7 @@ export class Catalog extends EventEmitter<{
         ? [
             {
               id: row.id,
+              ready: !!row.ready,
               kind: row.kind === 0 ? ('image' as const) : ('video' as const),
               folderId: row.folder_id,
               name: row.name,
@@ -412,6 +499,10 @@ export class Catalog extends EventEmitter<{
             ...(folderId === undefined ? [] : [folderId]),
           )
           for (const folder of folders) {
+            const wasOffline = !!this.one(
+              'select 1 from offline_folder where id=?',
+              folder.id,
+            )
             try {
               await this.scanFolder(folder)
             } catch (error) {
@@ -429,6 +520,11 @@ export class Catalog extends EventEmitter<{
                 new Error(`${folder.path}: ${errorMessage(error)}`),
               )
             }
+            if (
+              wasOffline !==
+              !!this.one('select 1 from offline_folder where id=?', folder.id)
+            )
+              this.notify([], true)
           }
           this.enqueue()
         } finally {
@@ -505,7 +601,7 @@ export class Catalog extends EventEmitter<{
           ).run(id)
           return id
         })
-        this.notify(old ? [old.media_id, mediaId] : [mediaId])
+        this.notify(old ? [old.media_id, mediaId] : [mediaId], true)
         this.pump() // thumbnails start while the scan continues
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
@@ -547,7 +643,11 @@ export class Catalog extends EventEmitter<{
           folder.id,
         )
     })
-    if (vanished.length) this.notify(vanished.map((file) => file.media_id))
+    if (vanished.length)
+      this.notify(
+        vanished.map((file) => file.media_id),
+        true,
+      )
   }
 
   // a sampled key shared with another unchanged alias is confirmed by hashing both files fully;
@@ -574,8 +674,10 @@ export class Catalog extends EventEmitter<{
     return digest
   }
 
-  private notify(ids: number[]): void {
+  private notify(ids: number[], listing = false): void {
     this.libraryDirty = true
+    this.listingDirty ||= listing
+    if (listing) this.libraryCache.clear()
     for (const id of ids) {
       if (this.one('select 1 from file where media_id=?', id)) {
         this.changed.add(id)
@@ -601,7 +703,8 @@ export class Catalog extends EventEmitter<{
     this.changed.clear()
     this.removed.clear()
     this.emit('change', change)
-    this.emit('libraryChanged')
+    this.emit('libraryChanged', { ...change, listing: this.listingDirty })
+    this.listingDirty = false
   }
 
   private work(): Work | undefined {
@@ -740,7 +843,7 @@ export class Catalog extends EventEmitter<{
         ).run(job.media_id, job.stage, job.generation)
         this.enqueue(job.media_id)
       })
-      this.notify([job.media_id])
+      this.notify([job.media_id], job.stage === 'thumb')
     } catch (error) {
       this.stmt(`update job set state=case when attempts>=3 then 'failed' else 'pending' end,error=?
         where media_id=? and stage=? and generation=? and state='running'`).run(
@@ -749,6 +852,7 @@ export class Catalog extends EventEmitter<{
         job.stage,
         job.generation,
       )
+      this.notify([job.media_id])
       this.emit(
         'warning',
         new Error(`${job.stage} ${job.path}: ${errorMessage(error)}`),
@@ -840,8 +944,8 @@ export class Catalog extends EventEmitter<{
     const failed =
       this.one<{
         n: number
-      }>(`select count(*) as n from job j where state='failed'
-      and exists(select 1 from file where media_id=j.media_id)`)?.n ?? 0
+      }>(`select coalesce(sum(n),0) as n from job_count where state='failed'`)
+        ?.n ?? 0
     const work = this.work()
     if (!work)
       return {
@@ -854,8 +958,8 @@ export class Catalog extends EventEmitter<{
       }
     const count = this.one<{ done: number; total: number }>(
       `select
-      coalesce(sum(j.state='done'),0) as done,count(*) as total from job j join media m on m.id=j.media_id
-      where j.stage=? and (?=-1 or m.kind=?) and exists(select 1 from file where media_id=m.id)`,
+      coalesce(sum(case when state='done' then n else 0 end),0) as done,sum(n) as total from job_count
+      where stage=? and (?=-1 or kind=?)`,
       work.stage,
       work.kind,
       work.kind,
@@ -905,7 +1009,8 @@ async function* walk(
     const child = join(directory.path, entry.name)
     if (
       child === ignored ||
-      ['.Trash', '.Trashes', '$RECYCLE.BIN'].includes(entry.name)
+      entry.name.startsWith('.') ||
+      ['@eaDir', '$RECYCLE.BIN'].includes(entry.name)
     )
       continue
     if (entry.isDirectory()) {

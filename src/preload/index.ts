@@ -58,7 +58,7 @@ ipcRenderer.on(CHANNELS.ports, (event) => {
     })
   resolveClients(current)
   for (const listener of subscriptions.get('libraryChanged') ?? [])
-    listener(null)
+    listener({ changedMedia: [], removedMedia: [], listing: true })
 })
 
 const call = <T>(peer: keyof Clients, method: string, params?: unknown) =>
@@ -91,6 +91,7 @@ const api: ViqueryApi = {
   addFolder: () => ipcRenderer.invoke(CHANNELS.addFolder),
   removeFolder: (id) => catalog('removeFolder', id),
   reveal: (id) => ipcRenderer.invoke(CHANNELS.reveal, id),
+  libraryStats: () => catalog('libraryStats'),
   library: (filter) => catalog('library', filter),
   items: (ids) => catalog('items', ids),
   scenes: (id) => catalog('scenes', id),

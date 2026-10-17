@@ -45,9 +45,9 @@ export function ensureItems(ids: Iterable<MediaId>): Promise<void> {
 
 // sprites and names change as indexing proceeds. items stay readable while they refetch,
 // so an open viewer or player never unmounts on an unrelated library change.
-export function staleItems() {
+export function staleItems(ids: Iterable<MediaId> = cache.keys()) {
   staleEpoch++
-  for (const id of cache.keys()) stale.add(id)
+  for (const id of ids) if (cache.has(id)) stale.add(id)
   notify()
 }
 

@@ -281,7 +281,7 @@ test('search utility fuses branches, merges moments, filters, and refreshes rewr
     !result.images.some((h) => h.mediaId === 7 || h.mediaId === 8),
     'stale generations and media without aliases stay out',
   )
-  assert.deepEqual(result.pending, { images: 1, videos: 2 })
+  assert.deepEqual(result.pending, { images: 1, videos: 1 })
   assert.ok(result.tookMs >= 0)
   const walk = result.videos.find((v) => v.mediaId === 4)!
   assert.equal(
@@ -367,6 +367,6 @@ test('search utility fuses branches, merges moments, filters, and refreshes rewr
     r.images.some((h) => h.mediaId === 213),
   )
   assert.ok(result.images.some((h) => h.mediaId === 213))
-  db.exec("update job set state = 'done' where media_id = 2")
-  await changed([], [], (r) => r.pending.images === 0)
+  db.exec("update job set state = 'failed' where media_id = 2")
+  await changed([2], [], (r) => r.pending.images === 0)
 })

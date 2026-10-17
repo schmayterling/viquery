@@ -42,7 +42,21 @@ export type LibraryIndex = {
   durationMs: Uint32Array // 0 for images
 }
 
+export type LibraryStats = {
+  all: number
+  image: number
+  video: number
+  recent: number
+  years: number[]
+}
+export type LibraryChange = {
+  changedMedia: MediaId[]
+  removedMedia: MediaId[]
+  listing: boolean
+}
+
 export type MediaItem = {
+  ready: boolean
   id: MediaId
   kind: MediaKind
   folderId: FolderId
@@ -122,6 +136,7 @@ export type ViqueryApi = {
   removeFolder(id: FolderId): Promise<void>
   reveal(id: MediaId): Promise<void>
 
+  libraryStats(): Promise<LibraryStats>
   library(filter: Filter): Promise<LibraryIndex>
   items(ids: MediaId[]): Promise<MediaItem[]>
   scenes(id: MediaId): Promise<Scene[]>
@@ -134,7 +149,7 @@ export type ViqueryApi = {
   pauseIndexing(paused: boolean): Promise<void>
   onServices(listener: (state: ServiceState) => void): () => void
   onIndex(listener: (state: IndexPhase) => void): () => void
-  onLibraryChanged(listener: () => void): () => void
+  onLibraryChanged(listener: (change: LibraryChange) => void): () => void
 }
 
 // vq:// urls served by the main process protocol handler.

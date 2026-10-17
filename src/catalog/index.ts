@@ -73,6 +73,7 @@ const rendererHandlers = () => ({
     }
     catalog.removeFolder(folderId)
   },
+  libraryStats: () => catalog.libraryStats(),
   library: (value: unknown) => catalog.library(filter(value)),
   items: (value: unknown) => {
     if (!Array.isArray(value) || value.length > 10000)
@@ -102,8 +103,8 @@ parent.on('message', ({ data, ports }) => {
     catalog.on('index', (state) => {
       if (renderer) emit(mainPort(renderer), 'index', state)
     })
-    catalog.on('libraryChanged', () => {
-      if (renderer) emit(mainPort(renderer), 'libraryChanged', null)
+    catalog.on('libraryChanged', (change) => {
+      if (renderer) emit(mainPort(renderer), 'libraryChanged', change)
     })
     catalog.on('change', (change) => {
       if (search) emit(mainPort(search), 'change', change)

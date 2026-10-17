@@ -5,6 +5,7 @@ import type {
   Folder,
   FolderId,
   LibraryIndex,
+  LibraryStats,
   MediaId,
 } from '../../shared/api'
 import { at, count, num } from './format'
@@ -13,7 +14,7 @@ import { type Dates, Header, yearDates } from './Header'
 import { staleItems } from './items'
 import { monthGroups } from './layout'
 import { NoResults, type OpenHit, Results, summary, useSearch } from './Search'
-import { type Counts, type Place, Sidebar } from './Sidebar'
+import { type Place, Sidebar } from './Sidebar'
 import { ROW_HEIGHTS, rememberQuery, Topbar } from './Topbar'
 import { Viewer, type ViewerState } from './Viewer'
 
@@ -44,22 +45,10 @@ function reversed(i: LibraryIndex): LibraryIndex {
   }
 }
 
-function years(i: LibraryIndex) {
-  const out: number[] = []
-  let from = Infinity
-  for (const t of i.takenAt) {
-    if (t >= from) continue
-    const y = new Date(t).getFullYear()
-    if (!out.includes(y)) out.push(y)
-    from = new Date(y, 0, 1).getTime()
-  }
-  return out.sort((a, b) => b - a)
-}
-
 export function App() {
   const [folders, setFolders] = useState<Folder[] | null>(null)
-  const [all, setAll] = useState<LibraryIndex | null>(null)
-  const [recent, setRecent] = useState(0)
+  const [stats, setStats] = useState<LibraryStats | null>(null)
+  const [libraryVersion, setLibraryVersion] = useState(0)
   const [version, setVersion] = useState(0)
   const [place, setPlace] = useState<Place>({
     scope: { kind: 'all' },
@@ -93,9 +82,11 @@ export function App() {
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
     let again = false
+    let listing = false
     const bump = () => {
-      staleItems()
       setVersion((v) => v + 1)
+      if (listing) setLibraryVersion((v) => v + 1)
+      listing = false
       timer = setTimeout(() => {
         timer = undefined
         if (again) {
@@ -104,7 +95,10 @@ export function App() {
         }
       }, 2000)
     }
-    const off = window.viquery.onLibraryChanged(() => {
+    const off = window.viquery.onLibraryChanged((change) => {
+      const ids = [...change.changedMedia, ...change.removedMedia]
+      staleItems(ids.length ? ids : undefined)
+      listing ||= change.listing
       if (timer) again = true
       else bump()
     })
@@ -116,14 +110,19 @@ export function App() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: refetch whenever the library changes
   useEffect(() => {
-    window.viquery.folders().then(setFolders)
+    let live = true
     window.viquery
-      .library({ scope: { kind: 'all' }, media: 'all' })
-      .then(setAll)
+      .folders()
+      .then((f) => live && setFolders(f))
+      .catch(console.error)
     window.viquery
-      .library({ scope: { kind: 'recent' }, media: 'all' })
-      .then((i) => setRecent(i.ids.length))
-  }, [version])
+      .libraryStats()
+      .then((s) => live && setStats(s))
+      .catch(console.error)
+    return () => {
+      live = false
+    }
+  }, [libraryVersion])
 
   const filter = useMemo<Filter>(
     () => ({
@@ -140,16 +139,34 @@ export function App() {
   useEffect(() => {
     if (searching) return
     let live = true
-    window.viquery.library(filter).then((i) => live && setIndex(i))
+    window.viquery
+      .library(filter)
+      .then((i) => {
+        if (!live) return
+        setIndex((old) =>
+          old &&
+          old.ids.length === i.ids.length &&
+          old.ids.every(
+            (id, k) =>
+              id === i.ids[k] &&
+              old.aspect[k] === i.aspect[k] &&
+              old.takenAt[k] === i.takenAt[k],
+          )
+            ? { ...i, ids: old.ids, aspect: old.aspect, takenAt: old.takenAt }
+            : i,
+        )
+      })
+      .catch(console.error)
     return () => {
       live = false
     }
-  }, [filter, version, searching])
+  }, [filter, libraryVersion, searching])
   const list = useMemo(
     () => (index && oldest ? reversed(index) : index),
     [index, oldest],
   )
-  const groups = useMemo(() => (list ? monthGroups(list) : []), [list])
+  // biome-ignore lint/correctness/useExhaustiveDependencies: grouping reads only dates
+  const groups = useMemo(() => (list ? monthGroups(list) : []), [list?.takenAt])
 
   // a new view starts at the top with nothing selected
   // biome-ignore lint/correctness/useExhaustiveDependencies: reset on view identity only
@@ -158,27 +175,22 @@ export function App() {
     setSelection(new Set())
   }, [filter, searching, oldest])
 
-  const counts = useMemo<Counts | null>(() => {
-    if (!all) return null
-    let video = 0
-    for (const k of all.kind) video += k
-    return { all: all.ids.length, image: all.ids.length - video, video, recent }
-  }, [all, recent])
-  const yearList = useMemo(() => (all ? years(all) : []), [all])
+  const counts = stats
+  const yearList = stats?.years ?? []
 
   const { state: search, stale } = useSearch(query, filter, version)
 
   const addFolder = useCallback(async () => {
     const f = await window.viquery.addFolder()
     if (!f) return
-    setVersion((v) => v + 1)
+    setLibraryVersion((v) => v + 1)
     setPlace({ scope: { kind: 'folder', folderId: f.id }, media: 'all' })
   }, [])
   const removeFolder = async (id: FolderId) => {
     await window.viquery.removeFolder(id)
     if (place.scope.kind === 'folder' && place.scope.folderId === id)
       setPlace({ scope: { kind: 'all' }, media: 'all' })
-    setVersion((v) => v + 1)
+    setLibraryVersion((v) => v + 1)
   }
 
   const onQuery = (q: string) => {

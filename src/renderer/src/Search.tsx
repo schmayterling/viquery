@@ -60,11 +60,22 @@ export function useSearch(query: string, filter: Filter, version: number) {
           ...filter,
           media: 'all',
         })
+        const before =
+          state?.key === key && 'result' in state ? state.result : null
         await ensureItems([
+          ...(before?.images.map((h) => h.mediaId) ?? []),
+          ...(before?.videos.map((h) => h.mediaId) ?? []),
           ...result.images.map((h) => h.mediaId),
           ...result.videos.map((h) => h.mediaId),
         ])
-        if (n === seq.current) setState({ key, result })
+        if (n === seq.current)
+          setState((before) => ({
+            key,
+            result:
+              before?.key === key && 'result' in before
+                ? appendResults(before.result, result)
+                : result,
+          }))
       } catch (e) {
         if (n === seq.current)
           setState({ key, error: e instanceof Error ? e.message : String(e) })
@@ -73,6 +84,31 @@ export function useSearch(query: string, filter: Filter, version: number) {
     return () => clearTimeout(timer)
   }, [key, version])
   return { state, stale: state !== null && state.key !== key }
+}
+
+function appendResults(before: SearchResult, next: SearchResult): SearchResult {
+  const images = before.images.filter((h) => getItem(h.mediaId))
+  const videos = before.videos.filter((h) => getItem(h.mediaId))
+  const seenImages = new Set(images.map((h) => h.mediaId))
+  const seenVideos = new Map(videos.map((h) => [h.mediaId, h]))
+  for (const image of next.images)
+    if (!seenImages.has(image.mediaId)) images.push(image)
+  for (const video of next.videos) {
+    const old = seenVideos.get(video.mediaId)
+    if (!old) videos.push(video)
+    else {
+      const scenes = new Set(old.moments.map((m) => m.sceneId))
+      const at = videos.indexOf(old)
+      videos[at] = {
+        ...old,
+        moments: [
+          ...old.moments,
+          ...video.moments.filter((m) => !scenes.has(m.sceneId)),
+        ],
+      }
+    }
+  }
+  return { ...next, images, videos }
 }
 
 export function summary(r: SearchResult, media: Filter['media']) {
@@ -101,24 +137,25 @@ export function Results(props: {
   focusRequest: { id: MediaId } | null
 }) {
   const { result, media } = props
-  useItemsVersion()
+  const itemVersion = useItemsVersion()
   const videos = media === 'image' ? [] : result.videos
   const images = media === 'video' ? [] : result.images
 
   // rank-ordered images as a columnar list for the justified grid
+  // biome-ignore lint/correctness/useExhaustiveDependencies: itemVersion refreshes cached metadata
   const list = useMemo<LibraryIndex>(() => {
     const items = images
       .map((h) => getItem(h.mediaId))
       .filter((i): i is MediaItem => !!i)
     return {
       ids: Uint32Array.from(items, (i) => i.id),
-      ready: new Uint8Array(items.length).fill(1), // search hits are indexed, so thumbs exist
+      ready: Uint8Array.from(items, (i) => Number(i.ready)),
       aspect: Float32Array.from(items, (i) => i.width / i.height),
       kind: new Uint8Array(items.length),
       takenAt: Float64Array.from(items, (i) => i.takenAt),
       durationMs: new Uint32Array(items.length),
     }
-  }, [images])
+  }, [images, itemVersion])
   const groups = useMemo(
     () => [{ label: 'Images', start: 0, end: list.ids.length }],
     [list],

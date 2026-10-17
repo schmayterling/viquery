@@ -95,8 +95,32 @@ export function Grid(props: Props) {
 
   const geo = useMemo(
     () => justify(list.aspect, groups, Math.max(width, 1), rowHeight, square),
-    [list, groups, width, rowHeight, square],
+    [list.aspect, groups, width, rowHeight, square],
   )
+  const previous = useRef<{
+    geo: Geometry
+    ids: Uint32Array
+    margin: number
+  } | null>(null)
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    const old = previous.current
+    if (el && old && el.scrollTop > 0 && old.ids.length) {
+      let r = rowAt(old.geo, el.scrollTop - old.margin)
+      while (old.geo.rows[r]?.kind === 'head') r++
+      const row = old.geo.rows[r]
+      if (row?.kind === 'tiles') {
+        const id = old.ids[row.start]
+        const index = list.ids.indexOf(id as number)
+        if (index >= 0) {
+          const next = at(geo.rows, at(geo.row, index))
+          el.scrollTop += margin + next.top - old.margin - row.top
+        }
+      }
+    }
+    previous.current = { geo, ids: list.ids, margin }
+  }, [geo, list.ids, margin, scrollRef])
+
   const size = useCallback(
     (r: number) => (geo.rows[r + 1]?.top ?? geo.height) - at(geo.rows, r).top,
     [geo],

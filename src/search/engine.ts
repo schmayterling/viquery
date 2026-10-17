@@ -217,6 +217,7 @@ export class SearchEngine {
     this.text.remove(removed)
     for (const id of removed) {
       this.media.delete(id)
+      this.pending.delete(id)
       for (const scene of this.mediaScenes.get(id) ?? [])
         this.scenes.delete(scene.id)
       this.mediaScenes.delete(id)
@@ -231,13 +232,16 @@ export class SearchEngine {
       const samples = this.db.prepare(`${sampleSql} and media_id = ?`)
       const transcripts = this.db.prepare(`${transcriptSql} and media_id = ?`)
       const ocr = this.db.prepare(`${ocrSql} and media_id = ?`)
-      this.refreshPending()
+      const pending = this.db.prepare(
+        "select 1 from job where media_id=? and state in ('pending','running') limit 1",
+      )
       const deleted = new Set(change.removedMedia)
       for (const id of new Set(change.changedMedia)) {
         if (deleted.has(id)) continue
         const row = metadata.get(id) as Media | undefined
         if (!row) continue
         this.addMedia(row)
+        if (pending.get(id)) this.pending.add(id)
         for (const scene of scenes.iterate(GENERATION.visual, id))
           this.addScene(scene as Scene)
         for (const sample of samples.iterate(GENERATION.visual, id))
@@ -254,7 +258,9 @@ export class SearchEngine {
     this.pending = new Set(
       Array.from(
         this.db
-          .prepare("select distinct media_id from job where state != 'done'")
+          .prepare(
+            "select distinct media_id from job where state in ('pending','running')",
+          )
           .iterate(),
         (row) => row.media_id as number,
       ),
