@@ -1,0 +1,101 @@
+{
+  "date": "2026-10-17T10:01:31.760Z",
+  "commit": "f5f0adb793d5290b1af8131d6f1abff49194f860",
+  "ffmpeg": "ffmpeg version 9.0.1 Copyright (c) 2000-2026 the FFmpeg developers",
+  "cpu": "Apple M2",
+  "cores": 8,
+  "platform": "darwin",
+  "release": "27.0.0",
+  "node": "v26.8.1",
+  "threads": {
+    "compute": 2,
+    "search": 2,
+    "sharp": 1
+  },
+  "provider": "cpu",
+  "priority": "below normal",
+  "model_manifest_sha256": "061b50f676cd53505c6526fac0375a80c1094b5d3a635651b4e2575e623b7e9c",
+  "scope": "compute api end-to-end, warm models; image decode/preprocess/inference; video two decode passes/frame writes/inference; speech ffmpeg/ASR/sentence vectors; excludes db/hash/thumb",
+  "baseline": "real time = 60 wall seconds per media minute; no before/after optimization comparison",
+  "limitations": "shared laptop; 320x240 h264 repeated static images and public-domain english speech; no sustained 4k/hevc/hour-long/cross-platform claim",
+  "cold_image_visual_ms": 169.93,
+  "image": {
+    "workload": "alternating cat.jpg and coffee.jpg; 2 warmups after cold load",
+    "runs": 12,
+    "min_ms": 26.606,
+    "p50_ms": 32.342,
+    "max_ms": 40.304,
+    "samples_ms": [
+      31.894, 29.128, 39.576, 40.304, 32.791, 32.919, 33.041, 26.606, 30.118,
+      29.608, 34.82, 27.824
+    ]
+  },
+  "videos": [
+    {
+      "workload": "fixture",
+      "width": 320,
+      "height": 240,
+      "duration_ms": 11000,
+      "scenes": 2,
+      "samples": 6,
+      "segments": 1,
+      "visual": {
+        "runs": 3,
+        "min_ms": 476.817,
+        "p50_ms": 602.189,
+        "max_ms": 654.263,
+        "samples_ms": [476.817, 654.263, 602.189],
+        "seconds_per_media_minute": 3.285
+      },
+      "speech": {
+        "runs": 3,
+        "min_ms": 1069.718,
+        "p50_ms": 1293.774,
+        "max_ms": 1379.506,
+        "samples_ms": [1069.718, 1379.506, 1293.774],
+        "seconds_per_media_minute": 7.057
+      },
+      "combined": {
+        "runs": 3,
+        "min_ms": 1546.536,
+        "p50_ms": 1895.963,
+        "max_ms": 2033.769,
+        "samples_ms": [1546.536, 2033.769, 1895.963],
+        "seconds_per_media_minute": 10.342
+      }
+    },
+    {
+      "workload": "synthetic-6x-fixture",
+      "width": 320,
+      "height": 240,
+      "duration_ms": 66116,
+      "scenes": 12,
+      "samples": 36,
+      "segments": 12,
+      "visual": {
+        "runs": 3,
+        "min_ms": 1787.712,
+        "p50_ms": 2047.997,
+        "max_ms": 2051.427,
+        "samples_ms": [2047.997, 2051.427, 1787.712],
+        "seconds_per_media_minute": 1.859
+      },
+      "speech": {
+        "runs": 3,
+        "min_ms": 4589.463,
+        "p50_ms": 5163.148,
+        "max_ms": 6193.69,
+        "samples_ms": [6193.69, 4589.463, 5163.148],
+        "seconds_per_media_minute": 4.686
+      },
+      "combined": {
+        "runs": 3,
+        "min_ms": 6640.89,
+        "p50_ms": 6950.86,
+        "max_ms": 8241.687,
+        "samples_ms": [8241.687, 6640.89, 6950.86],
+        "seconds_per_media_minute": 6.308
+      }
+    }
+  ]
+}

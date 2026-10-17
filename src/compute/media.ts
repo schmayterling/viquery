@@ -459,7 +459,7 @@ export function mediaTools(binaries: Binaries) {
         if (end) silence.push({ start, end: Number(end[1]) })
       },
     )
-    // ponytail: PCM memory scales at 230 MB/hour; stream overlapping ASR chunks if this becomes a limit.
+    // ponytail: whole-file PCM is 230 MB/hour before copies; use ffmpeg -ss/-t ASR windows if memory limits it.
     const samples = new Float32Array(pcm.length / 4)
     for (let i = 0; i < samples.length; i++) samples[i] = pcm.readFloatLE(i * 4)
     const duration = samples.length / 16000
