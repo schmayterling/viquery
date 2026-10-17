@@ -39,11 +39,13 @@
     "electron-winstaller@5.4.0": true,
     "onnxruntime-node@1.30.0": true,
     "fsevents@2.3.3": true,
-    "protobufjs": false
+    "protobufjs": false,
+    "@parcel/watcher": false
   },
   "license": "MIT",
   "dependencies": {
     "@huggingface/transformers": "4.3.1",
+    "@parcel/watcher": "2.6.0",
     "@tanstack/react-virtual": "3.14.21",
     "geist": "1.8.1",
     "justified-layout": "4.1.0",
