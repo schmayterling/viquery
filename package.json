@@ -53,6 +53,7 @@
     "justified-layout": "4.1.0",
     "lucide-react": "1.59.0",
     "onnxruntime-node": "1.30.0",
+    "paddleocr": "1.2.0",
     "sharp": "0.35.5"
   }
 }
