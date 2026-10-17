@@ -1,3 +1,6 @@
+// indexed read the caller knows is in bounds (noUncheckedIndexedAccess)
+export const at = <T>(a: ArrayLike<T>, i: number) => a[i] as T
+
 const numbers = new Intl.NumberFormat()
 const months = new Intl.DateTimeFormat(undefined, {
   month: 'long',

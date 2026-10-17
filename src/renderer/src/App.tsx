@@ -7,7 +7,7 @@ import type {
   LibraryIndex,
   MediaId,
 } from '../../shared/api'
-import { count, num } from './format'
+import { at, count, num } from './format'
 import { Grid } from './Grid'
 import { type Dates, Header, yearDates } from './Header'
 import { clearItems } from './items'
@@ -222,15 +222,16 @@ export function App() {
       else if (mod && (e.key === '=' || e.key === '+' || e.key === '-')) {
         const i = ROW_HEIGHTS.indexOf(rowHeight as (typeof ROW_HEIGHTS)[number])
         setRowHeight(
-          ROW_HEIGHTS[
+          at(
+            ROW_HEIGHTS,
             Math.max(
               0,
               Math.min(
                 ROW_HEIGHTS.length - 1,
                 (i < 0 ? 2 : i) + (e.key === '-' ? -1 : 1),
               ),
-            )
-          ]!,
+            ),
+          ),
         )
       } else if (mod && e.key === 'o') addFolder()
       else return
@@ -285,7 +286,7 @@ export function App() {
             <button
               type="button"
               className="btn"
-              onClick={() => window.viquery.reveal([...selection][0]!)}
+              onClick={() => window.viquery.reveal(at([...selection], 0))}
             >
               {document.documentElement.dataset.platform === 'darwin'
                 ? 'Show in Finder'

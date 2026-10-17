@@ -19,7 +19,7 @@ import {
   type SearchResult,
   type VideoHit,
 } from '../../shared/api'
-import { count, day, num, span, timecode } from './format'
+import { at, count, day, num, span, timecode } from './format'
 import { Grid, type Open, showSprite } from './Grid'
 import { ensureItems, getItem, useItemsVersion } from './items'
 
@@ -219,13 +219,13 @@ function MomentCard(props: {
   const { hit } = props
   const item = getItem(hit.mediaId)
   const [cur, setCur] = useState(0)
-  const m = hit.moments[Math.min(cur, hit.moments.length - 1)]!
+  const m = at(hit.moments, Math.min(cur, hit.moments.length - 1))
   const duration = item?.durationMs ?? m.endMs
   const folder = props.folders.find((f) => f.id === item?.folderId)
 
   const show = (k: number, announce: boolean) => {
     setCur(k)
-    const s = hit.moments[k]!
+    const s = at(hit.moments, k)
     if (announce)
       props.say(
         `Scene ${k + 1} of ${hit.moments.length}, ${timecode(s.startMs)} to ${timecode(s.endMs)}`,

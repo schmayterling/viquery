@@ -29,7 +29,7 @@ import {
   mediaUrl,
   type Scene,
 } from '../../shared/api'
-import { bytes, count, longDay, num, span, timecode } from './format'
+import { at, bytes, count, longDay, num, span, timecode } from './format'
 import type { Open } from './Grid'
 import { ensureItems, getItem, useItemsVersion } from './items'
 
@@ -54,7 +54,7 @@ const revealLabel = () =>
   ] ?? 'Show in folder'
 
 export function Viewer(props: Props) {
-  const id = props.ids[props.index]!
+  const id = at(props.ids, props.index)
   useItemsVersion()
   useEffect(() => {
     // neighbours too, so arrowing is instant
@@ -137,7 +137,6 @@ export function Viewer(props: Props) {
     )
 
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: viewer-wide shortcuts; every control inside is a button
     <div
       ref={ref}
       className="viewer"
@@ -518,7 +517,6 @@ function Player(props: {
         {missing ? (
           <Missing item={item} folder={props.folder} />
         ) : (
-          // biome-ignore lint/a11y/useMediaCaption: transcripts arrive with speech indexing; no caption track yet
           <video
             ref={video}
             src={mediaUrl.original(item.id)}

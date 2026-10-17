@@ -12,6 +12,7 @@ import {
   type SearchResult,
   type ViqueryApi,
 } from '../../shared/api'
+import { at } from './format'
 
 const params = new URLSearchParams(location.search)
 const N = Number(params.get('n') ?? 20_000)
@@ -89,9 +90,8 @@ const lib = {
     t -= r() < 0.85 ? r() * 4 * 3_600_000 : r() * 6 * 86_400_000
     const video = r() < 0.18
     lib.kind[i] = video ? 1 : 0
-    lib.aspect[i] = (video ? VIDEO : IMAGE)[
-      Math.floor(r() * (video ? VIDEO : IMAGE).length)
-    ]!
+    const shapes = video ? VIDEO : IMAGE
+    lib.aspect[i] = at(shapes, Math.floor(r() * shapes.length))
     lib.takenAt[i] = t
     lib.durationMs[i] = video
       ? Math.round(r() < 0.7 ? 5_000 + r() * 175_000 : 180_000 + r() * 690_000)
@@ -113,21 +113,21 @@ function select(filter: Parameters<ViqueryApi['library']>[0]) {
   const out: number[] = []
   if (empty) return out
   for (let i = 0; i < N; i++) {
-    if (!live.has(lib.folder[i]!)) continue
+    if (!live.has(at(lib.folder, i))) continue
     if (
       filter.scope.kind === 'folder' &&
-      lib.folder[i]! !== filter.scope.folderId
+      at(lib.folder, i) !== filter.scope.folderId
     )
       continue
     if (filter.scope.kind === 'recent' && !recent(i)) continue
     if (
       filter.media !== 'all' &&
-      lib.kind[i]! !== (filter.media === 'video' ? 1 : 0)
+      at(lib.kind, i) !== (filter.media === 'video' ? 1 : 0)
     )
       continue
-    if (filter.takenFrom !== undefined && lib.takenAt[i]! < filter.takenFrom)
+    if (filter.takenFrom !== undefined && at(lib.takenAt, i) < filter.takenFrom)
       continue
-    if (filter.takenTo !== undefined && lib.takenAt[i]! >= filter.takenTo)
+    if (filter.takenTo !== undefined && at(lib.takenAt, i) >= filter.takenTo)
       continue
     out.push(i)
   }
@@ -136,10 +136,10 @@ function select(filter: Parameters<ViqueryApi['library']>[0]) {
 
 function item(id: MediaId): MediaItem {
   const i = idx(id)
-  const video = lib.kind[i]! === 1
-  const folder = FOLDERS[lib.folder[i]! - 1]!
+  const video = at(lib.kind, i) === 1
+  const folder = at(FOLDERS, at(lib.folder, i) - 1)
   const long = video ? 1920 : 4032
-  const a = lib.aspect[i]!
+  const a = at(lib.aspect, i)
   const n = String(1000 + (id % 9000)).padStart(4, '0')
   const name = video
     ? folder.id === 4
@@ -156,10 +156,11 @@ function item(id: MediaId): MediaItem {
     path: `${folder.path}/${name}`,
     width: Math.round(a >= 1 ? long : long * a),
     height: Math.round(a >= 1 ? long / a : long),
-    takenAt: lib.takenAt[i]!,
-    durationMs: video ? lib.durationMs[i]! : null,
+    takenAt: at(lib.takenAt, i),
+    durationMs: video ? at(lib.durationMs, i) : null,
     bytes: Math.round(
-      (video ? lib.durationMs[i]! * 1200 : 2_400_000) * (0.6 + (id % 7) / 10),
+      (video ? at(lib.durationMs, i) * 1200 : 2_400_000) *
+        (0.6 + (id % 7) / 10),
     ),
     sprite: video ? { columns: 10, rows: 5, frames: 50 } : null,
   }
@@ -167,7 +168,7 @@ function item(id: MediaId): MediaItem {
 
 function scenes(id: MediaId): Scene[] {
   const r = rng(id)
-  const duration = lib.durationMs[idx(id)]!
+  const duration = at(lib.durationMs, idx(id))
   const out: Scene[] = []
   for (let s = 0; s < duration; ) {
     const e = Math.min(duration, s + 3_000 + Math.round(r() * 22_000))
@@ -224,13 +225,13 @@ function search(
   const pool = select(filter)
   const pick = (kind: number, n: number) => {
     const out = new Set<number>()
-    const candidates = pool.filter((i) => lib.kind[i]! === kind)
+    const candidates = pool.filter((i) => at(lib.kind, i) === kind)
     for (
       let tries = 0;
       out.size < Math.min(n, candidates.length) && tries < n * 20;
       tries++
     )
-      out.add(candidates[Math.floor(r() * candidates.length)]! + 1)
+      out.add(at(candidates, Math.floor(r() * candidates.length)) + 1)
     return [...out]
   }
   const videos = pick(1, 2 + Math.floor(r() * 4)).map((mediaId) => {
@@ -241,7 +242,7 @@ function search(
     return {
       mediaId,
       moments: [...chosen].map((k) => {
-        const s = all[k]!
+        const s = at(all, k)
         const speech = r() < 0.3
         return {
           sceneId: s.id,
@@ -337,7 +338,7 @@ function svg(id: MediaId, t: number, aspect: number) {
   const W = 400
   const H = Math.round(W / aspect)
   const r = rng(id * 31)
-  const body = SCENES[id % SCENES.length]!(W, H, t, r)
+  const body = at(SCENES, id % SCENES.length)(W, H, t, r)
   return { W, H, body }
 }
 const dataUrl = (s: string) => `data:image/svg+xml,${encodeURIComponent(s)}`
@@ -349,7 +350,7 @@ const thumbs = new Map<MediaId, string>()
 function thumb(id: MediaId) {
   let url = thumbs.get(id)
   if (!url) {
-    const { W, H, body } = svg(id, 0.3, lib.aspect[idx(id)]!)
+    const { W, H, body } = svg(id, 0.3, at(lib.aspect, idx(id)))
     url = dataUrl(doc(W, H, body))
     thumbs.set(id, url)
   }
@@ -359,7 +360,7 @@ const sprites = new Map<MediaId, string>()
 function sprite(id: MediaId) {
   let url = sprites.get(id)
   if (!url) {
-    const a = lib.aspect[idx(id)]!
+    const a = at(lib.aspect, idx(id))
     let W = 0
     let H = 0
     let cells = ''
@@ -461,7 +462,7 @@ function webm(
   const el = (n: number, ...parts: Uint8Array[]) => {
     const body = cat(parts)
     const size = be(body.length, 8)
-    size[0] = size[0]! | 0x01
+    size[0] = at(size, 0) | 0x01
     return cat([id(n), size, body])
   }
   const u = (n: number, v: number) => el(n, be(v, 8))
@@ -503,7 +504,7 @@ function webm(
   let group: typeof chunks = []
   const flush = () => {
     if (!group.length) return
-    const base = group[0]!.ms
+    const base = at(group, 0).ms
     const blocks = group.map((c) =>
       el(
         0xa3,
@@ -527,14 +528,18 @@ function webm(
     el(
       0x1c53bb6b,
       ...clusters.map((c, i) =>
-        el(0xbb, u(0xb3, c.ms), el(0xb7, u(0xf7, 1), u(0xf1, positions[i]!))),
+        el(
+          0xbb,
+          u(0xb3, c.ms),
+          el(0xb7, u(0xf7, 1), u(0xf1, at(positions, i))),
+        ),
       ),
     )
   // cue sizes are fixed-width, so positions can be computed from a zero-filled draft
-  let at = info.length + tracks.length + cues(clusters.map(() => 0)).length
+  let offset = info.length + tracks.length + cues(clusters.map(() => 0)).length
   const positions = clusters.map((c) => {
-    const p = at
-    at += c.bytes.length
+    const p = offset
+    offset += c.bytes.length
     return p
   })
   return cat([
@@ -557,14 +562,14 @@ export async function install() {
     const i = idx(id)
     const { W, H, body } = svg(
       id,
-      lib.durationMs[i]! ? ms / lib.durationMs[i]! : 0,
-      lib.aspect[i]!,
+      at(lib.durationMs, i) ? ms / at(lib.durationMs, i) : 0,
+      at(lib.aspect, i),
     )
     return dataUrl(doc(W, H, body))
   }
   mediaUrl.original = (id) => {
     if (lib.kind[idx(id)]) return video
-    const { W, H, body } = svg(id, 0.3, lib.aspect[idx(id)]!)
+    const { W, H, body } = svg(id, 0.3, at(lib.aspect, idx(id)))
     return dataUrl(doc(W, H, body, 5))
   }
 
@@ -597,10 +602,10 @@ export async function install() {
       const rows = select(filter)
       const out: LibraryIndex = {
         ids: Uint32Array.from(rows, (i) => i + 1),
-        aspect: Float32Array.from(rows, (i) => lib.aspect[i]!),
-        kind: Uint8Array.from(rows, (i) => lib.kind[i]!),
-        takenAt: Float64Array.from(rows, (i) => lib.takenAt[i]!),
-        durationMs: Uint32Array.from(rows, (i) => lib.durationMs[i]!),
+        aspect: Float32Array.from(rows, (i) => at(lib.aspect, i)),
+        kind: Uint8Array.from(rows, (i) => at(lib.kind, i)),
+        takenAt: Float64Array.from(rows, (i) => at(lib.takenAt, i)),
+        durationMs: Uint32Array.from(rows, (i) => at(lib.durationMs, i)),
       }
       return later(out, 20)
     },
