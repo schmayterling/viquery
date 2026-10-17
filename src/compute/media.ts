@@ -416,16 +416,21 @@ export function mediaTools(binaries: Binaries) {
 
   async function sprite(path: string, durationMs: number, output: string) {
     await mkdir(dirname(output), { recursive: true })
+    // FFmpeg 9: decode keyframes only, then hold the last one to fill all 50 tiles.
+    // https://ffmpeg.org/ffmpeg-filters.html#tile
+    // ponytail: hover times follow keyframes; use timestamp seeks for within-GOP precision.
     const png = await ffmpeg([
       '-v',
       'error',
+      '-skip_frame',
+      'nokey',
       '-i',
       path,
       '-map',
       '0:v:0',
       '-an',
       '-vf',
-      `fps=fps=50/(${durationMs}/1000):start_time=0,scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2,tile=10x5:nb_frames=50:padding=0:margin=0`,
+      `fps=fps=50/(${durationMs}/1000):start_time=0:eof_action=pass,scale=160:90:force_original_aspect_ratio=decrease,pad=160:90:(ow-iw)/2:(oh-ih)/2,tpad=stop_mode=clone:stop=49,tile=10x5:nb_frames=50:padding=0:margin=0`,
       '-frames:v',
       '1',
       '-f',

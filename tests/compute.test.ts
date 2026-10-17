@@ -376,6 +376,53 @@ test('compute shutdown kills decoding children and startup removes abandoned dec
   }
 })
 
+test('sprite fills all 50 tiles from a sparse keyframe stream', async (t) => {
+  const folder = await mkdtemp(join(tmpdir(), 'viquery-sprite-'))
+  t.after(() => rm(folder, { recursive: true, force: true }))
+  const tools = binaries()
+  const video = join(folder, 'one-keyframe.mp4')
+  await promisify(execFile)(tools.ffmpeg, [
+    '-v',
+    'error',
+    '-f',
+    'lavfi',
+    '-i',
+    'color=red:size=160x90:rate=10:duration=2',
+    '-vf',
+    "drawbox=color=blue:t=fill:enable='gte(t,1)'",
+    '-c:v',
+    'libx264',
+    '-threads',
+    '2',
+    '-g',
+    '300',
+    '-sc_threshold',
+    '0',
+    video,
+  ])
+  const output = join(folder, 'sprite.webp')
+  const sprite = await mediaTools(tools).sprite(video, 2000, output)
+  assert.deepEqual(sprite, { columns: 10, rows: 5, frames: 50 })
+  const { data, info } = await sharp(output)
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+  assert.equal(info.width, 1600)
+  assert.equal(info.height, 450)
+  // Only the first red frame is a keyframe; blue interframes must not be decoded.
+  for (let tile = 0; tile < 50; tile++) {
+    const x = (tile % 10) * 160 + 80
+    const y = Math.floor(tile / 10) * 90 + 45
+    const at = (y * info.width + x) * info.channels
+    assert.ok(
+      (data[at] as number) > 200 &&
+        (data[at + 1] as number) < 30 &&
+        (data[at + 2] as number) < 30,
+      `tile ${tile} must contain the held red keyframe`,
+    )
+  }
+})
+
 test('media tools never follow a concat script disguised as a video', async (t) => {
   const folder = await mkdtemp(join(tmpdir(), 'viquery-concat-'))
   t.after(() => rm(folder, { recursive: true, force: true }))
