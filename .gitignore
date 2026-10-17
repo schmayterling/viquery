@@ -1,0 +1,10 @@
+node_modules/
+out/
+dist/
+release/
+.worktrees/
+.DS_Store
+*.log
+/models/
+/resources/models/
+/research/raw/
