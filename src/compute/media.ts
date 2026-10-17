@@ -249,7 +249,7 @@ export function mediaTools(binaries: Binaries) {
         ?.rotation ?? Number(video.tags?.rotate ?? 0)
     const swap = Math.abs(rotation % 180) === 90
     const durationMs = Math.round(
-      Number(video.duration ?? format.duration) * 1000,
+      Number(format.duration ?? video.duration) * 1000,
     )
     if (!image && (!Number.isFinite(durationMs) || durationMs <= 0))
       throw new Error('video has no finite duration')
@@ -357,7 +357,7 @@ export function mediaTools(binaries: Binaries) {
         '0:v:0',
         '-an',
         '-vf',
-        `setpts=PTS-STARTPTS,${scale(384)},showinfo=checksum=0,select='gt(scene,0.3)',metadata=mode=print:key=lavfi.scene_score:file=-`,
+        `${scale(384)},showinfo=checksum=0,select='gt(scene,0.3)',metadata=mode=print:key=lavfi.scene_score:file=-`,
         '-f',
         'null',
         '-',
@@ -386,7 +386,7 @@ export function mediaTools(binaries: Binaries) {
       // https://ffmpeg.org/ffmpeg.html#Options
       await writeFile(
         filter,
-        `setpts=PTS-STARTPTS,select='${selectPts(points)}',${scale(320)},showinfo=checksum=0`,
+        `select='${selectPts(points)}',${scale(320)},showinfo=checksum=0`,
       )
       const frames: Frame[] = []
       await ffmpeg(
@@ -426,9 +426,11 @@ export function mediaTools(binaries: Binaries) {
     }
   }
 
-  async function audio(path: string) {
+  async function audio(path: string, durationMs: number) {
     const silence: { start: number; end: number }[] = []
     let start = 0
+    // Preserve delayed audio and timeline gaps as silence rather than shifting cues to zero.
+    // FFmpeg 8+: https://ffmpeg.org/ffmpeg-resampler.html#Resampler-Options
     const pcm = await ffmpeg(
       [
         '-v',
@@ -442,8 +444,10 @@ export function mediaTools(binaries: Binaries) {
         '1',
         '-ar',
         '16000',
+        '-t',
+        String(durationMs / 1000),
         '-af',
-        'silencedetect=noise=-50dB:d=0.5',
+        'aresample=16000:async=1:first_pts=0,silencedetect=noise=-50dB:d=0.5',
         '-f',
         'f32le',
         'pipe:1',
@@ -455,7 +459,7 @@ export function mediaTools(binaries: Binaries) {
         if (end) silence.push({ start, end: Number(end[1]) })
       },
     )
-    // ponytail: PCM memory scales at 230 MB/hour; stream overlapping ASR chunks if this becomes a limit.
+    // ponytail: whole-file PCM is 230 MB/hour before copies; use ffmpeg -ss/-t ASR windows if memory limits it.
     const samples = new Float32Array(pcm.length / 4)
     for (let i = 0; i < samples.length; i++) samples[i] = pcm.readFloatLE(i * 4)
     const duration = samples.length / 16000

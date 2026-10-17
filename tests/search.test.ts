@@ -1,13 +1,14 @@
 // biome-ignore-all lint/style/noNonNullAssertion: fixture ids and schema block are fixed by this test.
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { DatabaseSync } from 'node:sqlite'
+import type { DatabaseSync } from 'node:sqlite'
 import { test } from 'node:test'
 import { MessageChannel, type MessagePort } from 'node:worker_threads'
 import type { MessagePortMain } from 'electron'
+import { openDatabase } from '../src/catalog/schema.ts'
 import { startSearchUtility } from '../src/search/index.ts'
 import type { Filter, SearchResult } from '../src/shared/api.ts'
 import { dataPaths } from '../src/shared/paths.ts'
@@ -39,27 +40,6 @@ const utilityPort = (port: MessagePort): MessagePortMain =>
   }) as unknown as MessagePortMain
 
 function fixture(db: DatabaseSync) {
-  // Until catalog's migration lands, execute the binding schema rather than keeping a divergent copy.
-  const architecture = readFileSync(
-    new URL('../docs/ARCHITECTURE.md', import.meta.url),
-    'utf8',
-  )
-  db.exec(
-    `pragma journal_mode = wal; pragma foreign_keys = on; ${architecture.match(/```sql\n([\s\S]*?)```/u)![1]}`,
-  )
-  for (const [table, column] of [
-    ['file', 'name'],
-    ['transcript', 'text'],
-  ])
-    db.exec(`
-    create trigger ${table}_ai after insert on ${table} begin
-      insert into ${table}_fts(rowid, ${column}) values(new.id, new.${column}); end;
-    create trigger ${table}_ad after delete on ${table} begin
-      insert into ${table}_fts(${table}_fts, rowid, ${column}) values('delete', old.id, old.${column}); end;
-    create trigger ${table}_au after update on ${table} begin
-      insert into ${table}_fts(${table}_fts, rowid, ${column}) values('delete', old.id, old.${column});
-      insert into ${table}_fts(rowid, ${column}) values(new.id, new.${column}); end;
-  `)
   db.exec("insert into folder values(1, '/first', 0), (2, '/second', 0)")
   const media =
     db.prepare(`insert into media(id, sha256, kind, width, height, duration_ms, has_audio, taken_at, added_at, bytes)
@@ -144,10 +124,14 @@ function fixture(db: DatabaseSync) {
 
 test('search utility fuses branches, merges moments, filters, and refreshes rewritten/removed media over rpc', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'viquery-search-'))
-  const db = new DatabaseSync(dataPaths(root).db)
+  const db = openDatabase(dataPaths(root).db)
   const { sample, file } = fixture(db)
+  let encodedQueries = 0
   const encoders: TextEncoders = {
-    clip: async () => vector(1, 512),
+    clip: async () => {
+      encodedQueries++
+      return vector(1, 512)
+    },
     sentence: async () => vector(1, 384),
   }
   const parent = new EventEmitter()
@@ -244,6 +228,7 @@ test('search utility fuses branches, merges moments, filters, and refreshes rewr
     'similarity excludes source media',
   )
   await search(all, 'needle" OR (name:*) NOT x')
+  assert.equal(encodedQueries, 2, 'filter changes reuse the query vectors')
 
   // A renderer reload gets a fresh port without reloading vectors/models.
   const replacement = new MessageChannel()
@@ -280,4 +265,6 @@ test('search utility fuses branches, merges moments, filters, and refreshes rewr
     r.images.some((h) => h.mediaId === 213),
   )
   assert.ok(result.images.some((h) => h.mediaId === 213))
+  db.exec("update job set state = 'done' where media_id = 2")
+  await changed([], [], (r) => r.pending.images === 0)
 })

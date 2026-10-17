@@ -11,7 +11,7 @@ import {
   GENERATION,
   type TextEncoders,
 } from '../shared/protocol.ts'
-import { scan } from './scan.ts'
+import { Scanner } from './parallel.ts'
 import { type VectorRow, Vectors } from './vectors.ts'
 
 type Media = {
@@ -99,6 +99,11 @@ export class SearchEngine {
   private media = new Map<number, Media & { folderIds: number[] }>()
   private scenes = new Map<number, Scene>()
   private mediaScenes = new Map<number, Scene[]>()
+  private pending = new Set<number>()
+  private queryVectors = new Map<string, [Float32Array, Float32Array]>()
+  private scanner = new Scanner()
+  private activeQueries = 0
+  private deferred: CatalogChange[] = []
 
   constructor(path: string, encoders: TextEncoders) {
     // Node 24.22: keep the only writer in catalog; WAL readers see committed batches.
@@ -108,6 +113,7 @@ export class SearchEngine {
     this.read(() => {
       for (const row of this.db.prepare(`${mediaSql} group by m.id`).iterate())
         this.addMedia(row as Media)
+      this.refreshPending()
       for (const row of this.db.prepare(sceneSql).iterate(GENERATION.visual))
         this.addScene(row as Scene)
       for (const [table, sql, generation] of [
@@ -126,8 +132,19 @@ export class SearchEngine {
     })
   }
 
-  close() {
+  async close() {
+    await this.scanner.close()
     this.db.close()
+  }
+
+  private async snapshot<T>(fn: () => Promise<T>): Promise<T> {
+    this.activeQueries++
+    try {
+      return await fn()
+    } finally {
+      if (--this.activeQueries === 0)
+        for (const change of this.deferred.splice(0)) this.refresh(change)
+    }
   }
 
   private read<T>(fn: () => T): T {
@@ -155,6 +172,10 @@ export class SearchEngine {
   }
 
   refresh(change: CatalogChange) {
+    if (this.activeQueries) {
+      this.deferred.push(change)
+      return
+    }
     const removed = new Set([...change.changedMedia, ...change.removedMedia])
     this.visual.remove(removed)
     this.speech.remove(removed)
@@ -171,6 +192,7 @@ export class SearchEngine {
       const scenes = this.db.prepare(`${sceneSql} and media_id = ?`)
       const samples = this.db.prepare(`${sampleSql} and media_id = ?`)
       const transcripts = this.db.prepare(`${transcriptSql} and media_id = ?`)
+      this.refreshPending()
       const deleted = new Set(change.removedMedia)
       for (const id of new Set(change.changedMedia)) {
         if (deleted.has(id)) continue
@@ -185,6 +207,17 @@ export class SearchEngine {
           this.speech.append(segment as VectorRow)
       }
     })
+  }
+
+  private refreshPending() {
+    this.pending = new Set(
+      Array.from(
+        this.db
+          .prepare("select distinct media_id from job where state != 'done'")
+          .iterate(),
+        (row) => row.media_id as number,
+      ),
+    )
   }
 
   private selected(filter: Filter, recent?: number): Set<number> {
@@ -215,33 +248,58 @@ export class SearchEngine {
       throw new Error('invalid search query (maximum 4096 characters)')
     const sqlFilter = filterSql(filter)
     const text = query.trim()
-    if (!text) return this.read(() => this.result(query, [], sqlFilter, start))
-    const [clip, sentence] = await Promise.all([
-      this.encoders.clip(text),
-      this.encoders.sentence(text),
-    ])
-    if (
-      !(clip instanceof Float32Array) ||
-      !clip.every(Number.isFinite) ||
-      !(sentence instanceof Float32Array) ||
-      !sentence.every(Number.isFinite)
-    )
-      throw new Error('invalid query embedding')
-    return this.read(() => {
+    if (!text)
+      return this.result(
+        query,
+        [],
+        this.selected(filter, sqlFilter.params.recent as number | undefined),
+        start,
+      )
+    const [clip, sentence] = await this.encode(text)
+    return this.snapshot(async () => {
       const selected = this.selected(
         filter,
         sqlFilter.params.recent as number | undefined,
       )
       const visual = this.vectorBranch(this.visual, [clip], selected, 'visual')
-      const lexical = this.lexicalBranch(text, selected, sqlFilter)
       const speech = this.vectorBranch(
         this.speech,
         [sentence],
         selected,
         'speech',
       )
-      return this.result(query, [visual, lexical, speech], sqlFilter, start)
+      const lexical = this.read(() =>
+        this.lexicalBranch(text, selected, sqlFilter),
+      )
+      const [visualHits, speechHits] = await Promise.all([visual, speech])
+      return this.result(
+        query,
+        [visualHits, lexical, speechHits],
+        selected,
+        start,
+      )
     })
+  }
+
+  private async encode(text: string): Promise<[Float32Array, Float32Array]> {
+    let encoded = this.queryVectors.get(text)
+    if (encoded) this.queryVectors.delete(text)
+    else {
+      encoded = await Promise.all([
+        this.encoders.clip(text),
+        this.encoders.sentence(text),
+      ])
+      if (
+        encoded.some(
+          (v) => !(v instanceof Float32Array) || !v.every(Number.isFinite),
+        )
+      )
+        throw new Error('invalid query embedding')
+    }
+    this.queryVectors.set(text, encoded)
+    if (this.queryVectors.size > 32)
+      this.queryVectors.delete(this.queryVectors.keys().next().value!)
+    return encoded
   }
 
   async similar(id: number, filter: Filter): Promise<SearchResult> {
@@ -249,29 +307,30 @@ export class SearchEngine {
     if (!Number.isSafeInteger(id) || id <= 0)
       throw new Error('invalid media id')
     const sqlFilter = filterSql(filter)
-    return this.read(() => {
+    return this.snapshot(async () => {
       const selected = this.selected(
         filter,
         sqlFilter.params.recent as number | undefined,
       )
-      selected.delete(id)
+      const candidates = new Set(selected)
+      candidates.delete(id)
       return this.result(
         '',
-        [
+        await Promise.all([
           this.vectorBranch(
             this.visual,
             this.visual.queries(id),
-            selected,
+            candidates,
             'visual',
           ),
           this.vectorBranch(
             this.speech,
             this.speech.queries(id),
-            selected,
+            candidates,
             'speech',
           ),
-        ],
-        sqlFilter,
+        ]),
+        selected,
         start,
       )
     })
@@ -294,7 +353,7 @@ export class SearchEngine {
       .map((scene) => ({ mediaId, scene }))
   }
 
-  private vectorBranch(
+  private async vectorBranch(
     table: Vectors,
     queries: Float32Array[],
     selected: Set<number>,
@@ -306,7 +365,7 @@ export class SearchEngine {
     const scores = new Map<number, number>()
     // Similarity uses max across source samples, preserving short events rather than averaging them away.
     for (const query of queries)
-      for (const hit of scan(table, query, allowed))
+      for (const hit of await this.scanner.scan(table, query, allowed))
         scores.set(
           hit.index,
           Math.max(scores.get(hit.index) ?? -Infinity, hit.score),
@@ -400,7 +459,7 @@ export class SearchEngine {
   private result(
     query: string,
     branches: Map<string, Evidence>[],
-    sql: ReturnType<typeof filterSql>,
+    selected: Set<number>,
     start: number,
   ): SearchResult {
     const fused = new Map<string, Ranked>()
@@ -441,12 +500,9 @@ export class SearchEngine {
       moments: this.moments(hits),
     }))
     const pending = { images: 0, videos: 0 }
-    for (const row of this.db
-      .prepare(`select m.kind, count(*) as n from media m where ${sql.where}
-      and exists(select 1 from job where media_id = m.id and state != 'done') group by m.kind`)
-      .iterate(sql.params)) {
-      pending[row.kind === 0 ? 'images' : 'videos'] = row.n as number
-    }
+    for (const id of this.pending)
+      if (selected.has(id))
+        pending[this.media.get(id)!.kind === 0 ? 'images' : 'videos']++
     return { query, images, videos, pending, tookMs: performance.now() - start }
   }
 

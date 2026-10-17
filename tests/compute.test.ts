@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
+import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import test from 'node:test'
+import { promisify } from 'node:util'
 import sharp from 'sharp'
 import { createComputeApi } from '../src/compute/api.ts'
 import { loadTextEncoders } from '../src/ml/text.ts'
@@ -24,11 +26,12 @@ test('compute indexes fixture metadata, previews, visual moments and speech offl
   t.after(() => {
     globalThis.fetch = network
   })
+  const tools = binaries()
   const compute = createComputeApi({
     type: 'init',
     dataDir,
     modelsDir,
-    ...binaries(),
+    ...tools,
   })
   const paths = dataPaths(dataDir)
   const cat = {
@@ -126,6 +129,96 @@ test('compute indexes fixture metadata, previews, visual moments and speech offl
     ).metadata()
     assert.ok(Math.max(frame.width, frame.height) <= 320)
   }
+
+  const delayedAudio = join(dataDir, 'delayed-audio.mp4')
+  const delayedVideo = join(dataDir, 'delayed-video.mp4')
+  const muted = join(dataDir, 'muted.mp4')
+  await promisify(execFile)(tools.ffmpeg, [
+    '-v',
+    'error',
+    '-y',
+    '-i',
+    launch.path,
+    '-itsoffset',
+    '2',
+    '-i',
+    launch.path,
+    '-map',
+    '0:v:0',
+    '-map',
+    '1:a:0',
+    '-c',
+    'copy',
+    delayedAudio,
+    '-map',
+    '1:v:0',
+    '-map',
+    '0:a:0',
+    '-c',
+    'copy',
+    delayedVideo,
+    '-map',
+    '0:v:0',
+    '-an',
+    '-c',
+    'copy',
+    muted,
+  ])
+  assert.equal((await compute.probe({ path: delayedAudio })).durationMs, 13_000)
+  const delayed = await compute.speech({ mediaId: 5, path: delayedAudio })
+  assert.ok((delayed.segments[0]?.startMs ?? 0) >= 1700)
+  assert.ok(delayed.segments.every((segment) => segment.endMs <= 13_000))
+  const shifted = await compute.visual({
+    ...launch,
+    mediaId: 6,
+    path: delayedVideo,
+    durationMs: 13_000,
+  })
+  assert.ok(Math.abs((shifted.scenes[0]?.endMs ?? NaN) - 7500) < 100)
+  assert.ok(shifted.samples.every((sample) => (sample.tMs ?? 0) >= 2000))
+  assert.deepEqual(
+    (await compute.speech({ mediaId: 7, path: muted })).segments,
+    [],
+  )
+
+  const staticVideo = join(dataDir, 'static.mp4')
+  await promisify(execFile)(tools.ffmpeg, [
+    '-v',
+    'error',
+    '-y',
+    '-loop',
+    '1',
+    '-i',
+    cat.path,
+    '-r',
+    '2',
+    '-t',
+    '21.5',
+    '-c:v',
+    'mpeg4',
+    '-q:v',
+    '2',
+    '-pix_fmt',
+    'yuv420p',
+    staticVideo,
+  ])
+  const staticVisual = await compute.visual({
+    ...launch,
+    mediaId: 8,
+    path: staticVideo,
+    durationMs: 21_500,
+  })
+  assert.deepEqual(staticVisual.scenes, [
+    { startMs: 0, endMs: 10_000 },
+    { startMs: 10_000, endMs: 20_000 },
+    { startMs: 20_000, endMs: 21_500 },
+  ])
+  assert.equal(staticVisual.samples.length, 7)
+  assert.equal(
+    staticVisual.samples.filter((sample) => sample.scene === 2).length,
+    1,
+  )
+  assert.ok(Math.abs((staticVisual.samples.at(-1)?.tMs ?? NaN) - 20_750) <= 250)
 
   const speech = await compute.speech(launch)
   assert.match(

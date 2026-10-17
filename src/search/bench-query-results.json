@@ -1,0 +1,121 @@
+{
+  "env": {
+    "cpu": "Apple M2",
+    "cores": 8,
+    "memoryGiB": 24,
+    "os": "Darwin 27.0.0",
+    "arch": "arm64",
+    "node": "v26.8.1",
+    "v8": "14.6.202.34-node.28"
+  },
+  "models": {
+    "clip": "Xenova/clip-vit-base-patch32 int8",
+    "sentence": "Xenova/all-MiniLM-L6-v2 q8"
+  },
+  "vectors": {
+    "samples": 90000,
+    "sampleDimensions": 512,
+    "transcripts": 10000,
+    "transcriptDimensions": 384
+  },
+  "workload": "90000 media and done jobs; seeded normalized vectors; local text encoding + exact scans + FTS + RRF + Node MessagePort roundtrip",
+  "warmups": 10,
+  "runs": 50,
+  "statisticsOnly": true,
+  "notes": [
+    "concurrent chats; machine load varies between runs, these are not a controlled A/B",
+    "repeated means the last text queried again with encoders cached; fresh text differs for every query",
+    "synthetic vectors cannot establish retrieval quality or calibrate a relevance floor",
+    "Electron IPC, four-core x86, and packaged app remain unmeasured"
+  ],
+  "runsByStage": [
+    {
+      "stage": "baseline, one encoder thread",
+      "preRunMachineCpuPercent": 55.36,
+      "roundtrip": {
+        "minMs": 107.607917,
+        "p50Ms": 125.989042,
+        "p95Ms": 167.398584,
+        "maxMs": 206.469
+      },
+      "clip": {
+        "p50Ms": 29.054042,
+        "p95Ms": 40.930292
+      },
+      "sentence": {
+        "p50Ms": 30.906958,
+        "p95Ms": 48.680083
+      }
+    },
+    {
+      "stage": "pending counts cached, one encoder thread",
+      "preRunMachineCpuPercent": null,
+      "roundtrip": {
+        "minMs": 85.146542,
+        "p50Ms": 90.5235,
+        "p95Ms": 99.071,
+        "maxMs": 148.151834
+      },
+      "clip": {
+        "p50Ms": 26.338208,
+        "p95Ms": 31.663041
+      },
+      "sentence": {
+        "p50Ms": 27.612,
+        "p95Ms": 34.180417
+      }
+    },
+    {
+      "stage": "pending + query cache + two workers, one encoder thread",
+      "preRunMachineCpuPercent": null,
+      "roundtrip": {
+        "minMs": 58.331084,
+        "p50Ms": 74.015459,
+        "p95Ms": 132.946875,
+        "maxMs": 168.425417
+      },
+      "repeated": {
+        "minMs": 29.947333,
+        "p50Ms": 39.954334,
+        "p95Ms": 55.674791,
+        "maxMs": 62.926084
+      },
+      "clip": {
+        "p50Ms": 33.491958,
+        "p95Ms": 50.755958
+      },
+      "sentence": {
+        "p50Ms": 34.863083,
+        "p95Ms": 52.566542
+      }
+    },
+    {
+      "stage": "pending + query cache + two workers + two encoder threads",
+      "preRunMachineCpuPercent": 29.15,
+      "roundtrip": {
+        "minMs": 50.399042,
+        "p50Ms": 62.005875,
+        "p95Ms": 78.323584,
+        "maxMs": 80.912417
+      },
+      "repeated": {
+        "minMs": 29.475084,
+        "p50Ms": 30.831875,
+        "p95Ms": 33.801958,
+        "maxMs": 37.987375
+      },
+      "clip": {
+        "minMs": 16.810083,
+        "p50Ms": 19.759708,
+        "p95Ms": 22.374584,
+        "maxMs": 30.105333
+      },
+      "sentence": {
+        "minMs": 17.827041,
+        "p50Ms": 21.143375,
+        "p95Ms": 25.508208,
+        "maxMs": 31.545792
+      }
+    }
+  ]
+}

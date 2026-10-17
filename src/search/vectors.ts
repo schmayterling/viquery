@@ -12,7 +12,7 @@ export type VectorRow = {
 }
 
 export class Vectors implements Matrix {
-  data = new Float32Array(0)
+  data: Float32Array = new Float32Array(0)
   ids = new Float64Array(0)
   mediaIds = new Float64Array(0)
   sceneIds = new Float64Array(0)
@@ -41,7 +41,9 @@ export class Vectors implements Matrix {
       next.set(this[key])
       this[key] = next
     }
-    const data = new Float32Array(capacity * this.dimensions)
+    const data = new Float32Array(
+      new SharedArrayBuffer(capacity * this.dimensions * 4),
+    )
     data.set(this.data)
     this.data = data
   }
