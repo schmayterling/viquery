@@ -354,6 +354,7 @@ export class Catalog extends EventEmitter<{
           "update job set state='pending',attempts=0,error=null where state='failed'",
         )
         this.progress()
+        this.pump() // already-queued thumbnails run while the scan walks
         try {
           const folders = this.all<FolderRow>(
             `select id,path from folder${folderId === undefined ? '' : ' where id=?'}`,
