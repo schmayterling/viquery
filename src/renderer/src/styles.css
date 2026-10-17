@@ -597,7 +597,7 @@ p {
   margin-left: auto;
   color: var(--accent);
 }
-.menu-item[aria-checked="true"] .check-mark {
+.menu-item[aria-pressed="true"] .check-mark {
   visibility: visible;
 }
 .menu hr {
@@ -1440,6 +1440,16 @@ p {
 }
 
 /* ---- video player: letterboxed stage, solid control bar, side panel ---- */
+.vplayer:fullscreen {
+  background: var(--viewer-backdrop);
+}
+.vpanel-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
 .vplayer {
   flex: 1;
   min-width: 0;

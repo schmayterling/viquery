@@ -344,10 +344,24 @@ if (primary)
   app
     .whenReady()
     .then(async () => {
+      // Electron 44: fullscreen is a permission; limit it to our top-level app page.
+      // https://www.electronjs.org/docs/latest/api/session#sessetpermissionrequesthandlerhandler
       session.defaultSession.setPermissionRequestHandler(
-        (_webContents, _permission, callback) => callback(false),
+        (webContents, permission, callback, details) =>
+          callback(
+            permission === 'fullscreen' &&
+              details.isMainFrame &&
+              webContents.mainFrame.url === rendererURL &&
+              details.requestingUrl === rendererURL,
+          ),
       )
-      session.defaultSession.setPermissionCheckHandler(() => false)
+      session.defaultSession.setPermissionCheckHandler(
+        (webContents, permission, _origin, details) =>
+          permission === 'fullscreen' &&
+          details.isMainFrame === true &&
+          webContents?.mainFrame.url === rendererURL &&
+          details.requestingUrl === rendererURL,
+      )
       const devOrigin = process.env.ELECTRON_RENDERER_URL
         ? new URL(rendererURL).origin
         : null

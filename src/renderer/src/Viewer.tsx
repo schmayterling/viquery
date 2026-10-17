@@ -71,6 +71,19 @@ export function Viewer(props: Props) {
   const folder = props.folders.find((f) => f.id === item?.folderId)
   const [info, setInfo] = useInfo()
 
+  useEffect(() => {
+    if (props.mode !== 'quicklook') return
+    const close = (e: KeyboardEvent) => {
+      if ((e.target as HTMLElement).matches('input,select,textarea')) return
+      if (e.key !== 'Escape' && e.key !== ' ') return
+      e.preventDefault()
+      e.stopPropagation()
+      props.onClose(id)
+    }
+    window.addEventListener('keydown', close, true)
+    return () => window.removeEventListener('keydown', close, true)
+  }, [props.mode, props.onClose, id])
+
   const onKeyDown = (e: React.KeyboardEvent) => {
     if ((e.target as HTMLElement).matches('input, select')) return
     const mode = props.mode

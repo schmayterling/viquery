@@ -10,7 +10,7 @@ import {
   Trash2,
   Video,
 } from 'lucide-react'
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import type {
   Folder,
   FolderId,
@@ -52,6 +52,7 @@ export function Sidebar(props: Props) {
     x: number
     y: number
   } | null>(null)
+  const closeMenu = useCallback(() => setMenu(null), [])
   const nav = (
     target: Place,
     icon: ReactNode,
@@ -155,7 +156,7 @@ export function Sidebar(props: Props) {
       {menu && (
         <FolderMenu
           {...menu}
-          onClose={() => setMenu(null)}
+          onClose={closeMenu}
           onRemove={() => props.onRemoveFolder(menu.folder.id)}
         />
       )}
@@ -189,7 +190,7 @@ function FolderMenu(props: {
       ref={ref}
       className="menu"
       popover="auto"
-      role="menu"
+      role="dialog"
       aria-label={props.folder.name}
     >
       {confirm ? (
@@ -221,7 +222,6 @@ function FolderMenu(props: {
           <div className="menu-label">{props.folder.path}</div>
           <button
             type="button"
-            role="menuitem"
             className="menu-item"
             onClick={() => setConfirm(true)}
           >
@@ -250,9 +250,11 @@ function Resizer(props: { onResize: (width: number, done: boolean) => void }) {
       }}
       onPointerMove={(e) => dragging && props.onResize(e.clientX, false)}
       onPointerUp={(e) => {
+        if (!dragging) return
         setDragging(false)
         props.onResize(e.clientX, true)
       }}
+      onPointerCancel={() => setDragging(false)}
       onDoubleClick={() => props.onResize(248, true)}
     />
   )

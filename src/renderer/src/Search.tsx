@@ -225,7 +225,8 @@ function MomentList(props: {
         <h2>Moments</h2>
         <span className="meta">{count(videos.length, 'video')}</span>
       </div>
-      <div ref={ref} className="moments">
+      {/* biome-ignore lint/a11y/useSemanticElements: grid of independently focusable moment cards */}
+      <div ref={ref} className="moments" role="list">
         {videos.map((v, i) => (
           <MomentCard
             key={v.mediaId}

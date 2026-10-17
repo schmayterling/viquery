@@ -1,5 +1,6 @@
 import {
   Maximize,
+  Minimize,
   PanelRight,
   Pause,
   Play,
@@ -95,6 +96,13 @@ export function Player(props: {
 
   const [t, setT] = useState(props.start)
   const [playing, setPlaying] = useState(false)
+  const [fullscreen, setFullscreen] = useState(false)
+  useEffect(() => {
+    const change = () =>
+      setFullscreen(document.fullscreenElement === root.current)
+    document.addEventListener('fullscreenchange', change)
+    return () => document.removeEventListener('fullscreenchange', change)
+  }, [])
   const [muted, setMuted] = useState(false)
   const [volume, setVolume] = useState(1)
   const [rate, setRate] = useState(1)
@@ -491,11 +499,20 @@ export function Player(props: {
             <button
               type="button"
               className="icon-btn"
-              aria-label="Full screen"
-              title="Full screen"
-              onClick={() => video.current?.parentElement?.requestFullscreen()}
+              aria-label={fullscreen ? 'Exit full screen' : 'Full screen'}
+              title={fullscreen ? 'Exit full screen' : 'Full screen'}
+              onClick={() => {
+                const change = fullscreen
+                  ? document.exitFullscreen()
+                  : root.current?.requestFullscreen()
+                void change?.catch(console.error)
+              }}
             >
-              <Maximize aria-hidden="true" />
+              {fullscreen ? (
+                <Minimize aria-hidden="true" />
+              ) : (
+                <Maximize aria-hidden="true" />
+              )}
             </button>
             <button
               type="button"
@@ -550,12 +567,35 @@ export function Player(props: {
                 </button>
               )}
             </label>
-            <div className="segmented" role="tablist" aria-label="Panel">
+            <div
+              className="segmented"
+              role="tablist"
+              aria-label="Panel"
+              onKeyDown={(e) => {
+                if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key))
+                  return
+                e.preventDefault()
+                const next =
+                  e.key === 'Home'
+                    ? 'matches'
+                    : e.key === 'End'
+                      ? 'transcript'
+                      : tab === 'matches'
+                        ? 'transcript'
+                        : 'matches'
+                setTab(next)
+                e.currentTarget
+                  .querySelector<HTMLButtonElement>(`#vtab-${next}`)
+                  ?.focus()
+              }}
+            >
               <button
                 type="button"
                 role="tab"
+                id="vtab-matches"
+                tabIndex={tab === 'matches' ? 0 : -1}
                 aria-selected={tab === 'matches'}
-                aria-controls="vpanel-list"
+                aria-controls="vpanel-content"
                 onClick={() => setTab('matches')}
               >
                 Matches
@@ -564,8 +604,10 @@ export function Player(props: {
               <button
                 type="button"
                 role="tab"
+                id="vtab-transcript"
+                tabIndex={tab === 'transcript' ? 0 : -1}
                 aria-selected={tab === 'transcript'}
-                aria-controls="vpanel-list"
+                aria-controls="vpanel-content"
                 onClick={() => setTab('transcript')}
               >
                 Transcript
@@ -573,57 +615,65 @@ export function Player(props: {
               </button>
             </div>
           </div>
-          {tab === 'matches' ? (
-            <Matches
-              id={id}
-              q={q}
-              results={results}
-              stale={stale}
-              pins={pins}
-              pinAt={pinAt}
-              words={words}
-              seek={seek}
-            />
-          ) : !transcript ? null : transcript.length === 0 ? (
-            <p className="vpanel-empty">
-              {pending ? (
-                <>
-                  <strong>Still transcribing…</strong>
-                  Speech in this video becomes searchable when indexing reaches
-                  it.
-                </>
-              ) : (
-                <strong>No speech in this video</strong>
-              )}
-            </p>
-          ) : (
-            <ol
-              ref={lines}
-              id="vpanel-list"
-              className="vpanel-list"
-              onPointerEnter={() => {
-                reading.current = true
-              }}
-              onPointerLeave={() => {
-                reading.current = false
-              }}
-            >
-              {transcript.map((s, k) => (
-                <li key={s.startMs}>
-                  <button
-                    type="button"
-                    className="line"
-                    aria-current={k === line}
-                    data-match={(q && said(s)) || undefined}
-                    onClick={() => seek(s.startMs)}
-                  >
-                    <span className="ts">{timecode(s.startMs)}</span>
-                    <span>{highlight(s.text, words)}</span>
-                  </button>
-                </li>
-              ))}
-            </ol>
-          )}
+          <div
+            id="vpanel-content"
+            className="vpanel-content"
+            role="tabpanel"
+            aria-labelledby={`vtab-${tab}`}
+            // biome-ignore lint/a11y/noNoninteractiveTabindex: empty tab panels must remain keyboard reachable
+            tabIndex={0}
+          >
+            {tab === 'matches' ? (
+              <Matches
+                id={id}
+                q={q}
+                results={results}
+                stale={stale}
+                pins={pins}
+                pinAt={pinAt}
+                words={words}
+                seek={seek}
+              />
+            ) : !transcript ? null : transcript.length === 0 ? (
+              <p className="vpanel-empty">
+                {pending ? (
+                  <>
+                    <strong>Still transcribing…</strong>
+                    Speech in this video becomes searchable when indexing
+                    reaches it.
+                  </>
+                ) : (
+                  <strong>No speech in this video</strong>
+                )}
+              </p>
+            ) : (
+              <ol
+                ref={lines}
+                className="vpanel-list"
+                onPointerEnter={() => {
+                  reading.current = true
+                }}
+                onPointerLeave={() => {
+                  reading.current = false
+                }}
+              >
+                {transcript.map((s, k) => (
+                  <li key={s.startMs}>
+                    <button
+                      type="button"
+                      className="line"
+                      aria-current={k === line}
+                      data-match={(q && said(s)) || undefined}
+                      onClick={() => seek(s.startMs)}
+                    >
+                      <span className="ts">{timecode(s.startMs)}</span>
+                      <span>{highlight(s.text, words)}</span>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
           <span className="sr-only" role="status" aria-live="polite">
             {results && !stale
               ? pins.length
@@ -678,11 +728,7 @@ function Matches(props: {
       </p>
     )
   return (
-    <ol
-      id="vpanel-list"
-      className="vpanel-list"
-      data-stale={props.stale || undefined}
-    >
+    <ol className="vpanel-list" data-stale={props.stale || undefined}>
       {pins.map((m, k) => (
         <li key={m.sceneId}>
           <button

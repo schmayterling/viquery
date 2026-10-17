@@ -195,15 +195,14 @@ function TileMenu(props: Props) {
         id="tile-menu"
         className="menu"
         popover="auto"
-        role="menu"
+        role="dialog"
         aria-label="Tile size"
       >
         {ROW_HEIGHTS.map((h, i) => (
           <button
             key={h}
             type="button"
-            role="menuitemradio"
-            aria-checked={props.rowHeight === h}
+            aria-pressed={props.rowHeight === h}
             className="menu-item"
             onClick={() => props.onRowHeight(h)}
           >
@@ -214,8 +213,7 @@ function TileMenu(props: Props) {
         <hr />
         <button
           type="button"
-          role="menuitemcheckbox"
-          aria-checked={!props.square}
+          aria-pressed={!props.square}
           className="menu-item"
           onClick={() => props.onSquare(!props.square)}
         >

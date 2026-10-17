@@ -102,8 +102,7 @@ function DateChip({ dates, onDates, years }: Props) {
     <button
       key={label}
       type="button"
-      role="menuitemradio"
-      aria-checked={(dates?.label ?? null) === (d?.label ?? null)}
+      aria-pressed={(dates?.label ?? null) === (d?.label ?? null)}
       className="menu-item"
       onClick={() => set(d)}
     >
@@ -117,7 +116,7 @@ function DateChip({ dates, onDates, years }: Props) {
       id="date-chip"
       className="chip"
       popoverTarget="date-menu"
-      aria-haspopup="menu"
+      aria-haspopup="dialog"
     >
       <Calendar aria-hidden="true" />
       {dates ? dates.label : 'Any date'}
@@ -145,7 +144,7 @@ function DateChip({ dates, onDates, years }: Props) {
         id="date-menu"
         className="menu"
         popover="auto"
-        role="menu"
+        role="dialog"
         aria-label="Date"
       >
         {item(null, 'Any date')}
