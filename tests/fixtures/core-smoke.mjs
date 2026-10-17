@@ -78,7 +78,7 @@ app.once('browser-window-created', (_event, win) => {
       const info = await run('window.viquery.appInfo()')
       assert.equal(info.platform, process.platform)
       const folder = await run('window.viquery.addFolder()')
-      assert.equal(folder.count, 8)
+      assert.equal(folder.count, 0)
       let phase
       do {
         await delay(100)

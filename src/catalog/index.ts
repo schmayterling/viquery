@@ -15,31 +15,38 @@ let resolveCompute: (client: Client) => void
 const compute = new Promise<Client>((resolve) => {
   resolveCompute = resolve
 })
-const subscriptions = new Map<string, watcher.AsyncSubscription>()
+const subscriptions = new Map<string, Promise<watcher.AsyncSubscription>>()
 const rescans = new Map<number, ReturnType<typeof setTimeout>>()
 
 async function watch(path: string, folderId: number): Promise<void> {
-  if (subscriptions.has(path)) return
-  try {
-    subscriptions.set(
-      path,
-      await watcher.subscribe(path, (error) => {
-        if (error) {
-          console.error('watcher:', error.message)
-          void subscriptions.get(path)?.unsubscribe().catch(console.error)
-          subscriptions.delete(path)
-        }
-        clearTimeout(rescans.get(folderId))
-        rescans.set(
-          folderId,
-          setTimeout(() => {
-            rescans.delete(folderId)
-            void rescan(folderId).catch(console.error)
-          }, 200),
-        )
-      }),
+  const existing = subscriptions.get(path)
+  if (existing) {
+    await existing
+    return
+  }
+  const subscription = watcher.subscribe(path, (error) => {
+    if (error) {
+      console.error('watcher:', error.message)
+      void subscriptions
+        .get(path)
+        ?.then((s) => s.unsubscribe())
+        .catch(console.error)
+      subscriptions.delete(path)
+    }
+    clearTimeout(rescans.get(folderId))
+    rescans.set(
+      folderId,
+      setTimeout(() => {
+        rescans.delete(folderId)
+        void rescan(folderId).catch(console.error)
+      }, 200),
     )
+  })
+  subscriptions.set(path, subscription)
+  try {
+    await subscription
   } catch (error) {
+    if (subscriptions.get(path) === subscription) subscriptions.delete(path)
     // removable roots can be offline; focus/launch reconciliation retries the watch.
     console.error('watcher:', error)
   }
@@ -59,7 +66,7 @@ const rendererHandlers = () => ({
     const folderId = id(value)
     const folder = catalog.folders().find((row) => row.id === folderId)
     if (folder) {
-      await subscriptions.get(folder.path)?.unsubscribe()
+      await subscriptions.get(folder.path)?.then((s) => s.unsubscribe())
       subscriptions.delete(folder.path)
       clearTimeout(rescans.get(folder.id))
       rescans.delete(folder.id)
@@ -119,12 +126,16 @@ parent.on('message', ({ data, ports }) => {
         for (const [path, subscription] of subscriptions) {
           if (catalog.folders().some((row) => row.path === path)) continue
           subscriptions.delete(path)
-          await subscription.unsubscribe()
+          await (await subscription).unsubscribe()
         }
         return folder
       },
       lookup: (value: unknown) => catalog.lookup(id(value)),
       rescan: () => rescan(),
+      reconnect: async () => {
+        for (const folder of catalog.folders())
+          if (folder.state === 'offline') await rescan(folder.id)
+      },
     })
   if (message.peer === 'renderer') {
     renderer?.close()

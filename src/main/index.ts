@@ -330,7 +330,7 @@ function createWindow(): void {
     win.webContents.send(CHANNELS.services, serviceState)
   })
   win.on('focus', () => {
-    void catalog.call('rescan').catch(console.error)
+    void catalog.call('reconnect').catch(console.error)
   })
   if (!app.isPackaged && process.env.ELECTRON_RENDERER_URL)
     win.loadURL(rendererURL)

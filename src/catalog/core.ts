@@ -137,6 +137,7 @@ export class Catalog extends EventEmitter<{
   private readonly db
   private readonly statements = new Map<string, StatementSync>()
   private scans = Promise.resolve()
+  private queuedScans = new Map<number, Promise<void>>()
   private scanning = 0
   private found = 0
   private active = new Set<Promise<void>>()
@@ -232,7 +233,7 @@ export class Catalog extends EventEmitter<{
     beforeScan?: (path: string, folderId: number) => Promise<void>,
   ): Promise<Folder> {
     let canonical = await realpath(path)
-    if (canonical === this.dataDir)
+    if (canonical === this.dataDir || contains(this.dataDir, canonical))
       throw new Error('cannot index viquery data directory')
     if (!(await stat(canonical)).isDirectory())
       throw new Error('folder must be a directory')
@@ -270,8 +271,11 @@ export class Catalog extends EventEmitter<{
       return row
     })
     this.notify([])
-    await beforeScan?.(canonical, folder.id)
-    await this.rescan(folder.id)
+    // Register the scan synchronously so settled()/close() also wait for discovery.
+    const ready = beforeScan?.(canonical, folder.id)
+    void this.rescan(folder.id, ready).catch((error) =>
+      this.emit('warning', error),
+    )
     return this.folders().find((entry) => entry.id === folder.id) as Folder
   }
 
@@ -388,11 +392,16 @@ export class Catalog extends EventEmitter<{
     if (!paused) this.pump()
   }
 
-  rescan(folderId?: number): Promise<void> {
+  rescan(folderId?: number, ready?: Promise<void>): Promise<void> {
     if (this.closed) return Promise.resolve()
+    const key = folderId ?? 0
+    const queued = this.queuedScans.get(0) ?? this.queuedScans.get(key)
+    if (queued) return queued
     this.scans = this.scans
       .catch(() => {})
       .then(async () => {
+        this.queuedScans.delete(key)
+        await ready
         this.scanning++
         this.found = 0
         this.progress()
@@ -429,6 +438,7 @@ export class Catalog extends EventEmitter<{
           this.pump()
         }
       })
+    this.queuedScans.set(key, this.scans)
     return this.scans
   }
 

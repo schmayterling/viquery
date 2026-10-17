@@ -124,8 +124,14 @@ test('catalog fixture: content identity, aliases, phased jobs, retries, resume a
   })
   catalog.on('change', (change) => changes.push(change))
   catalog.pauseIndexing(true)
+  await mkdir(join(dataDir, 'thumbs'), { recursive: true })
+  await assert.rejects(
+    catalog.addFolder(join(dataDir, 'thumbs')),
+    /data directory/,
+  )
   const folder = await catalog.addFolder(library)
-  assert.equal(folder.count, 3)
+  assert.equal(folder.count, 0)
+  await catalog.settled()
   assert.equal(calls.length, 0)
   assert.equal(catalog.library(all).ids.length, 3)
   const dbPath = dataPaths(dataDir).db
@@ -201,6 +207,9 @@ test('catalog fixture: content identity, aliases, phased jobs, retries, resume a
       .get()?.n,
     1,
   )
+  const scan = catalog.rescan()
+  assert.equal(catalog.rescan(), scan, 'queued rescans share one walk')
+  await scan
   const snapshot = JSON.stringify(
     db.prepare('select * from sample order by id').all(),
   )
@@ -333,6 +342,7 @@ test('catalog folder boundaries: sampled identity, nested folders, missing roots
     await file.close()
   }
   await catalog.addFolder(large)
+  await catalog.settled()
   // a and c are true duplicates; b must not merge into them
   assert.equal(catalog.library(all).ids.length, 2)
 
@@ -341,10 +351,12 @@ test('catalog folder boundaries: sampled identity, nested folders, missing roots
   await mkdir(child)
   await writeFile(join(child, 'x.jpg'), 'nested')
   const outer = await catalog.addFolder(large)
-  assert.deepEqual(await catalog.addFolder(child), outer)
+  await catalog.settled()
+  assert.equal((await catalog.addFolder(child)).id, outer.id)
   catalog.removeFolder(outer.id)
   await catalog.addFolder(child)
   const absorbed = await catalog.addFolder(large)
+  await catalog.settled()
   assert.deepEqual(
     catalog.folders().map((folder) => [folder.id, folder.count]),
     [[absorbed.id, 3]],
