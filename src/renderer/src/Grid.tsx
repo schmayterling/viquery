@@ -4,6 +4,7 @@ import {
   type KeyboardEvent,
   type PointerEvent,
   type RefObject,
+  type SyntheticEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -357,6 +358,11 @@ export function showSprite(
   el.setAttribute('data-scrub', '')
 }
 
+// broken thumbnails and frames fall back to the --tile fill, never the broken-image glyph
+export const hideBroken = (e: SyntheticEvent<HTMLImageElement>) => {
+  e.currentTarget.style.visibility = 'hidden'
+}
+
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
 
 type TileProps = {
@@ -383,6 +389,10 @@ function Tile({
   const video = list.kind[i] === 1
   const duration = at(list.durationMs, i)
   const item = getItem(id)
+  // no thumbnail until the catalog marks it ready; a failed load keeps the tile fill and
+  // retries with the next index (refetched after every thumb job)
+  const [failed, setFailed] = useState<LibraryIndex | null>(null)
+  const ready = list.ready[i] === 1 && failed !== list
   const mounted = useRef(performance.now())
   const label = [
     item?.name,
@@ -427,22 +437,25 @@ function Tile({
         video ? (e) => e.currentTarget.removeAttribute('data-scrub') : undefined
       }
     >
-      <img
-        src={mediaUrl.thumb(id)}
-        alt=""
-        decoding="async"
-        loading={eager ? 'eager' : 'lazy'}
-        fetchPriority={eager ? 'high' : 'auto'}
-        draggable={false}
-        onLoad={(e) => {
-          // fade only late arrivals; instant ones would flicker while scrolling fast (design §9.3)
-          if (e.timeStamp - mounted.current > 100 && !reducedMotion.matches)
-            e.currentTarget.animate(
-              { opacity: [0, 1] },
-              { duration: 160, easing: 'ease-out' },
-            )
-        }}
-      />
+      {ready && (
+        <img
+          src={mediaUrl.thumb(id)}
+          alt=""
+          decoding="async"
+          loading={eager ? 'eager' : 'lazy'}
+          fetchPriority={eager ? 'high' : 'auto'}
+          draggable={false}
+          onLoad={(e) => {
+            // fade only late arrivals; instant ones would flicker while scrolling fast (design §9.3)
+            if (e.timeStamp - mounted.current > 100 && !reducedMotion.matches)
+              e.currentTarget.animate(
+                { opacity: [0, 1] },
+                { duration: 160, easing: 'ease-out' },
+              )
+          }}
+          onError={() => setFailed(list)}
+        />
+      )}
       {video && (
         <>
           <div className="sprite" />

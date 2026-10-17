@@ -602,6 +602,7 @@ export async function install() {
       const rows = select(filter)
       const out: LibraryIndex = {
         ids: Uint32Array.from(rows, (i) => i + 1),
+        ready: new Uint8Array(rows.length).fill(1),
         aspect: Float32Array.from(rows, (i) => at(lib.aspect, i)),
         kind: Uint8Array.from(rows, (i) => at(lib.kind, i)),
         takenAt: Float64Array.from(rows, (i) => at(lib.takenAt, i)),

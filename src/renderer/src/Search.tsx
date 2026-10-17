@@ -20,7 +20,7 @@ import {
   type VideoHit,
 } from '../../shared/api'
 import { at, count, day, num, span, timecode } from './format'
-import { Grid, type Open, showSprite } from './Grid'
+import { Grid, hideBroken, type Open, showSprite } from './Grid'
 import { ensureItems, getItem, useItemsVersion } from './items'
 
 export type OpenHit = (
@@ -111,6 +111,7 @@ export function Results(props: {
       .filter((i): i is MediaItem => !!i)
     return {
       ids: Uint32Array.from(items, (i) => i.id),
+      ready: new Uint8Array(items.length).fill(1), // search hits are indexed, so thumbs exist
       aspect: Float32Array.from(items, (i) => i.width / i.height),
       kind: new Uint8Array(items.length),
       takenAt: Float64Array.from(items, (i) => i.takenAt),
@@ -279,10 +280,12 @@ function MomentCard(props: {
         onPointerLeave={(e) => e.currentTarget.removeAttribute('data-scrub')}
       >
         <img
+          key={m.seekMs}
           src={mediaUrl.frame(hit.mediaId, m.seekMs)}
           alt=""
           decoding="async"
           draggable={false}
+          onError={hideBroken}
         />
         <div className="sprite" />
         <div className="scrub">

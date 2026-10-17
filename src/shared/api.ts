@@ -33,7 +33,8 @@ export type Filter = {
 // index i describes one item across all arrays. sorted newest first.
 export type LibraryIndex = {
   ids: Uint32Array
-  aspect: Float32Array // width / height after orientation
+  ready: Uint8Array // 1 once thumb (and video sprite) exist; render a placeholder until then
+  aspect: Float32Array // width / height after orientation; 1 until ready
   kind: Uint8Array // 0 image, 1 video
   takenAt: Float64Array // epoch ms
   durationMs: Uint32Array // 0 for images

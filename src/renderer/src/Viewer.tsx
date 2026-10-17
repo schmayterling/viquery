@@ -30,7 +30,7 @@ import {
   type Scene,
 } from '../../shared/api'
 import { at, bytes, count, longDay, num, span, timecode } from './format'
-import type { Open } from './Grid'
+import { hideBroken, type Open } from './Grid'
 import { ensureItems, getItem, useItemsVersion } from './items'
 
 export type ViewerState = {
@@ -123,6 +123,7 @@ export function Viewer(props: Props) {
                 src={mediaUrl.original(id)}
                 alt={item?.name ?? ''}
                 decoding="async"
+                onError={hideBroken}
               />
             )}
           </div>
@@ -239,7 +240,7 @@ function Missing({
 }) {
   return (
     <div className="missing" role="alert">
-      <img src={mediaUrl.thumb(item.id)} alt="" />
+      <img src={mediaUrl.thumb(item.id)} alt="" onError={hideBroken} />
       <p>
         {folder?.state === 'offline'
           ? `${folder.name} isn't connected. Connect the drive to open the original.`
@@ -729,6 +730,7 @@ function Player(props: {
                 alt=""
                 loading="lazy"
                 decoding="async"
+                onError={hideBroken}
               />
               {props.query && matching.has(s.id) && (
                 <span className="range">{span(s.startMs, s.endMs)}</span>

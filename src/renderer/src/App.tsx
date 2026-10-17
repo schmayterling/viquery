@@ -36,6 +36,7 @@ const narrow = matchMedia('(max-width: 700px)')
 function reversed(i: LibraryIndex): LibraryIndex {
   return {
     ids: i.ids.slice().reverse(),
+    ready: i.ready.slice().reverse(),
     aspect: i.aspect.slice().reverse(),
     kind: i.kind.slice().reverse(),
     takenAt: i.takenAt.slice().reverse(),
