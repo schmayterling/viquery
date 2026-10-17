@@ -610,6 +610,7 @@ export async function install() {
     transcript: () => later([]),
     search: (query, filter) => later(search(query, filter)),
     similar: (id, filter) => later(search(String(id), filter)),
+    searchVideo: () => later([]),
     pauseIndexing: async (paused) => {
       index.paused = paused
       for (const l of indexListeners) l(phase())

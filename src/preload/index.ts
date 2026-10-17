@@ -53,6 +53,7 @@ const api: ViqueryApi = {
   transcript: (id) => catalog('transcript', id),
   search: (query, filter) => search('search', { query, filter }),
   similar: (id, filter) => search('similar', { id, filter }),
+  searchVideo: (id, query) => search('searchVideo', { id, query }),
   pauseIndexing: (paused) => catalog('pauseIndexing', paused),
   onIndex: (listener) => subscribe('index', listener),
   onLibraryChanged: (listener) => subscribe('libraryChanged', listener),

@@ -82,6 +82,12 @@ export type Moment = {
 }
 
 export type VideoHit = { mediaId: MediaId; moments: Moment[] } // moments in rank order
+
+// one scene of a single video scored against a query, for the player timeline.
+export type SceneMatch = Moment & {
+  score: number // 0..1 relative to the other scenes of this video, for a heat strip
+  match: boolean // clears the match bar: draw a marker, list it, include in [ / ] jumps
+}
 export type ImageHit = { mediaId: MediaId }
 
 export type SearchResult = {
@@ -120,6 +126,7 @@ export type ViqueryApi = {
 
   search(query: string, filter: Filter): Promise<SearchResult>
   similar(id: MediaId, filter: Filter): Promise<SearchResult>
+  searchVideo(id: MediaId, query: string): Promise<SceneMatch[]> // every scene, time order
 
   pauseIndexing(paused: boolean): Promise<void>
   onIndex(listener: (state: IndexPhase) => void): () => void
