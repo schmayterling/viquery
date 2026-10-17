@@ -137,6 +137,7 @@ export type ViqueryApi = {
 // vq:// urls served by the main process protocol handler.
 export const mediaUrl = {
   thumb: (id: MediaId) => `vq://thumb/${id}`,
+  preview: (id: MediaId) => `vq://preview/${id}`,
   sprite: (id: MediaId) => `vq://sprite/${id}`,
   frame: (id: MediaId, ms: number) => `vq://frame/${id}/${ms}`,
   original: (id: MediaId) => `vq://media/${id}`,

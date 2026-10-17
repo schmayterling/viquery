@@ -62,6 +62,20 @@ export function createComputeApi(init: ComputeInit): ComputeApi {
       const output = paths.thumb(p.mediaId)
       if (p.kind === 'image') {
         const { data, info } = await media.image(p.path)
+        const metadata = await sharp(p.path)
+          .metadata()
+          .catch(() => null)
+        if (
+          !metadata ||
+          !['jpeg', 'png', 'webp', 'gif', 'avif'].includes(metadata.format)
+        ) {
+          const preview = paths.preview(p.mediaId)
+          await mkdir(dirname(preview), { recursive: true })
+          await sharp(data, { raw: info })
+            .resize(2560, 2560, { fit: 'inside', withoutEnlargement: true })
+            .webp()
+            .toFile(preview)
+        }
         await mkdir(dirname(output), { recursive: true })
         await sharp(data, { raw: info })
           .resize(512, 512, {

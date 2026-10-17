@@ -88,6 +88,16 @@ test('compute indexes fixture metadata, previews, visual moments and speech offl
   assert.equal(rotated.width, 40)
   assert.equal(rotated.height, 80)
 
+  // File suffix is deliberately misleading: preview decisions use decoded format.
+  const tiff = { ...cat, mediaId: 40, path: join(dataDir, 'tiff.jpg') }
+  await sharp(cat.path).tiff().toFile(tiff.path)
+  await compute.thumb(tiff)
+  assert.equal(
+    (await sharp(paths.preview(tiff.mediaId)).metadata()).format,
+    'webp',
+  )
+  assert.equal(existsSync(paths.preview(cat.mediaId)), false)
+
   const text = await loadTextEncoders(modelsDir)
   const catVisual = await compute.visual(cat)
   assert.deepEqual(catVisual.scenes, [])

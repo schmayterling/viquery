@@ -30,6 +30,7 @@ import {
 import { count, span, timecode } from './format'
 import { hideBroken } from './Grid'
 import { useIndexPhase } from './items'
+import { MediaFailure, originalAvailable } from './Media'
 
 type Tab = 'matches' | 'transcript'
 const SPEEDS = [0.5, 1, 1.25, 1.5, 2]
@@ -80,7 +81,6 @@ export function Player(props: {
   query: string
   start: number
   poster: string
-  missing: ReactNode
 }) {
   const { item } = props
   const id = item.id
@@ -98,7 +98,7 @@ export function Player(props: {
   const [muted, setMuted] = useState(false)
   const [volume, setVolume] = useState(1)
   const [rate, setRate] = useState(1)
-  const [missing, setMissing] = useState(false)
+  const [available, setAvailable] = useState<boolean | null>(null)
   const [hover, setHover] = useState<{
     ms: number
     pin: SceneMatch | null
@@ -319,8 +319,12 @@ export function Player(props: {
     >
       <div className="vplayer-main">
         <div className="vstage">
-          {missing ? (
-            props.missing
+          {available !== null ? (
+            <MediaFailure
+              item={item}
+              folder={props.folder}
+              available={available}
+            />
           ) : (
             <video
               ref={video}
@@ -339,7 +343,7 @@ export function Player(props: {
               onTimeUpdate={(e) => setT(e.currentTarget.currentTime * 1000)}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
-              onError={() => setMissing(true)}
+              onError={() => void originalAvailable(id).then(setAvailable)}
             />
           )}
         </div>

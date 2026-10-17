@@ -72,11 +72,13 @@ export function mediaHandler(
       const path =
         url.hostname === 'thumb'
           ? paths.thumb(id)
-          : url.hostname === 'sprite'
-            ? paths.sprite(id)
-            : url.hostname === 'frame'
-              ? paths.frame(id, ms as number)
-              : null
+          : url.hostname === 'preview'
+            ? paths.preview(id)
+            : url.hostname === 'sprite'
+              ? paths.sprite(id)
+              : url.hostname === 'frame'
+                ? paths.frame(id, ms as number)
+                : null
       if (!path) return new Response(null, { status: 404 })
       locations = [{ path, root: paths.root, size: 0, mtimeMs: 0 }]
     }

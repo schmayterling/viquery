@@ -14,8 +14,9 @@ import {
   mediaUrl,
 } from '../../shared/api'
 import { at, bytes, longDay, num, timecode } from './format'
-import { hideBroken, type Open } from './Grid'
+import type { Open } from './Grid'
 import { ensureItems, getItem, useItemsVersion } from './items'
+import { OriginalImage, QuickVideo } from './Media'
 import { Player } from './Player'
 
 export type ViewerState = {
@@ -32,7 +33,6 @@ type Props = ViewerState & {
   onClose: (id: MediaId) => void
 }
 
-const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)')
 const revealLabel = () =>
   ({ darwin: 'Show in Finder', win32: 'Show in Explorer' })[
     document.documentElement.dataset.platform ?? ''
@@ -96,26 +96,14 @@ export function Viewer(props: Props) {
         <figure role="dialog" aria-label={`Quick look: ${item?.name ?? ''}`}>
           <div className="media">
             {item?.kind === 'video' ? (
-              <video
+              <QuickVideo
                 key={id}
-                src={mediaUrl.original(id)}
-                poster={mediaUrl.thumb(id)}
-                muted
-                autoPlay={!reducedMotion.matches}
-                loop
-                onLoadedMetadata={(e) => {
-                  if (moments?.[0])
-                    e.currentTarget.currentTime = moments[0].startMs / 1000
-                }}
+                item={item}
+                folder={folder}
+                start={moments?.[0]?.startMs ?? 0}
               />
             ) : (
-              <img
-                key={id}
-                src={mediaUrl.original(id)}
-                alt={item?.name ?? ''}
-                decoding="async"
-                onError={hideBroken}
-              />
+              item && <OriginalImage key={id} item={item} folder={folder} />
             )}
           </div>
           <figcaption>
@@ -196,7 +184,6 @@ export function Viewer(props: Props) {
                   ? mediaUrl.frame(id, moments[0].frameMs)
                   : mediaUrl.thumb(id)
               }
-              missing={<Missing item={item} folder={folder} />}
             />
           ) : (
             <ImageView
@@ -225,25 +212,6 @@ function useInfo() {
   return [open, set] as const
 }
 
-function Missing({
-  item,
-  folder,
-}: {
-  item: MediaItem
-  folder: Folder | undefined
-}) {
-  return (
-    <div className="missing" role="alert">
-      <img src={mediaUrl.thumb(item.id)} alt="" onError={hideBroken} />
-      <p>
-        {folder?.state === 'offline'
-          ? `${folder.name} isn't connected. Connect the drive to open the original.`
-          : 'The original moved or was deleted.'}
-      </p>
-    </div>
-  )
-}
-
 function ImageView(props: {
   item: MediaItem
   folder: Folder | undefined
@@ -252,7 +220,6 @@ function ImageView(props: {
   go: (step: number) => void
 }) {
   const { item } = props
-  const [missing, setMissing] = useState(false)
   const [z, setZ] = useState({ s: 1, x: 0, y: 0 })
   const drag = useRef<{ x: number; y: number } | null>(null)
   const zoom = useCallback(
@@ -307,18 +274,11 @@ function ImageView(props: {
           drag.current = null
         }}
       >
-        {missing ? (
-          <Missing item={item} folder={props.folder} />
-        ) : (
-          <img
-            src={mediaUrl.original(item.id)}
-            alt={item.name}
-            decoding="async"
-            draggable={false}
-            onError={() => setMissing(true)}
-            style={{ transform: `translate(${z.x}px, ${z.y}px) scale(${z.s})` }}
-          />
-        )}
+        <OriginalImage
+          item={item}
+          folder={props.folder}
+          style={{ transform: `translate(${z.x}px, ${z.y}px) scale(${z.s})` }}
+        />
         <button
           type="button"
           className="nav-zone prev"

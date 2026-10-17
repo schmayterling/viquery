@@ -161,6 +161,15 @@ export class Catalog extends EventEmitter<{
     this.db.exec(
       "create temp table offline_folder(id integer primary key); update job set state = 'pending' where state = 'running'",
     )
+    // Existing libraries predate display previews; only rebuild unsupported images.
+    for (const row of this.all<{ id: number }>(
+      "select id from media where kind=0 and codec is not null and codec not in ('jpeg','png','webp','gif','avif')",
+    )) {
+      if (!existsSync(dataPaths(dataDir).preview(row.id)))
+        this.stmt(
+          "update job set state='pending',attempts=0 where media_id=? and stage='thumb' and state='done'",
+        ).run(row.id)
+    }
     this.enqueue()
   }
 
