@@ -9,7 +9,9 @@ import {
   type MediaItem,
   mediaUrl,
   type Scene,
+  type SceneMatch,
   type SearchResult,
+  type TranscriptSegment,
   type ViqueryApi,
 } from '../../shared/api'
 import { at } from './format'
@@ -171,7 +173,7 @@ function scenes(id: MediaId): Scene[] {
   const duration = at(lib.durationMs, idx(id))
   const out: Scene[] = []
   for (let s = 0; s < duration; ) {
-    const e = Math.min(duration, s + 3_000 + Math.round(r() * 22_000))
+    const e = Math.min(duration, s + 2_500 + Math.round(r() * 9_000))
     out.push({
       id: id * 1000 + out.length,
       startMs: s,
@@ -181,6 +183,75 @@ function scenes(id: MediaId): Scene[] {
     s = e
   }
   return out
+}
+
+const LINES = [
+  'okay everyone, over here by the dock',
+  'look at the water, it is so clear today',
+  'ready? one, two, three, jump!',
+  'that was amazing, do it again',
+  'careful, the boards are slippery',
+  'who wants lunch after this',
+  'the light is perfect right now',
+  'wave to the camera',
+  'we should come back next summer',
+  'listen to the birds over there',
+  'hold on, let me fix the focus',
+]
+
+// two thirds of mock videos have speech
+function speech(id: MediaId): TranscriptSegment[] {
+  if (id % 3 === 0) return []
+  const r = rng(id * 7)
+  const duration = at(lib.durationMs, idx(id))
+  const out: TranscriptSegment[] = []
+  for (let s = 1500 + r() * 3000; s < duration - 1000; ) {
+    const len = 1800 + r() * 3500
+    out.push({
+      startMs: Math.round(s),
+      endMs: Math.round(Math.min(duration, s + len)),
+      text: at(LINES, Math.floor(r() * LINES.length)),
+      language: 'en',
+    })
+    s += len + 400 + r() * 6000
+  }
+  return out
+}
+
+// every scene scored: a few smooth peaks per query, relative to the best scene
+function sceneMatches(id: MediaId, query: string): SceneMatch[] {
+  if (id % 5 === 0) return [] // not indexed yet
+  const all = scenes(id)
+  const r = rng(hash(query.toLowerCase()) ^ id)
+  const none = /giraffe|zz/i.test(query)
+  const peaks = Array.from(
+    { length: 1 + Math.floor(r() * 3) },
+    () => r() * all.length,
+  )
+  const raw = all.map(
+    (_, k) =>
+      Math.max(...peaks.map((c) => Math.exp(-((k - c) ** 2) / 1.5))) +
+      r() * 0.12,
+  )
+  const max = Math.max(...raw)
+  const lines = speech(id)
+  return all.map((scene, k) => {
+    const score = (at(raw, k) / max) * (none ? 0.45 : 1)
+    const match = score > 0.8
+    const said = match
+      ? lines.find((l) => l.startMs < scene.endMs && scene.startMs < l.endMs)
+      : undefined
+    return {
+      sceneId: scene.id,
+      startMs: scene.startMs,
+      endMs: scene.endMs,
+      seekMs: scene.frameMs,
+      sources: said ? ['visual', 'speech'] : ['visual'],
+      snippet: said?.text ?? null,
+      score,
+      match,
+    }
+  })
 }
 
 // ---- index progress ----
@@ -612,10 +683,10 @@ export async function install() {
     },
     items: (ids) => later(ids.map(item), 15),
     scenes: (id) => later(scenes(id)),
-    transcript: () => later([]),
+    transcript: (id) => later(speech(id)),
     search: (query, filter) => later(search(query, filter)),
     similar: (id, filter) => later(search(String(id), filter)),
-    searchVideo: () => later([]),
+    searchVideo: (id, query) => later(sceneMatches(id, query)),
     pauseIndexing: async (paused) => {
       index.paused = paused
       for (const l of indexListeners) l(phase())
