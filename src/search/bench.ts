@@ -43,11 +43,13 @@ console.log(
     runs,
     warmups,
     limit,
+    mixedLibrary:
+      '100k items: 90k images + 10k five-minute videos at 3 samples/10s = 990k vectors',
     workload:
       'seeded normalized f32, warm ram; dot + filter mask + exact top-200; workers include query/mask/result ipc; excludes models/db/fusion/electron ipc',
   }),
 )
-for (const count of [100_000, 500_000]) {
+for (const count of [100_000, 990_000]) {
   const data = new Float32Array(new SharedArrayBuffer(count * dimensions * 4))
   for (let i = 0; i < count; i++) data.set(vector(), i * dimensions)
   const matrix = { data, count, dimensions }
