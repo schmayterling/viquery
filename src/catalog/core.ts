@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import { createReadStream, type Dir, existsSync, realpathSync } from 'node:fs'
-import { open, opendir, realpath, stat } from 'node:fs/promises'
+import { lstat, open, opendir, realpath, stat } from 'node:fs/promises'
 import { basename, extname, join, sep } from 'node:path'
 import type { SQLInputValue, StatementSync } from 'node:sqlite'
 import type {
@@ -742,8 +742,13 @@ export class Catalog extends EventEmitter<{
   }
 
   private async checkFile(job: Job): Promise<void> {
-    const current = await stat(job.path)
-    if (current.size !== job.size || current.mtimeMs !== job.mtime_ms) {
+    // lstat: an alias swapped for a symlink must not lead compute outside the folder
+    const current = await lstat(job.path)
+    if (
+      !current.isFile() ||
+      current.size !== job.size ||
+      current.mtimeMs !== job.mtime_ms
+    ) {
       void this.rescan()
       throw new Error('file changed during indexing; rescan queued')
     }
