@@ -18,7 +18,7 @@ export type Folder = {
 
 export type Scope =
   | { kind: 'all' }
-  | { kind: 'recent' }
+  | { kind: 'recent' } // media first added (media.added_at) within the last 30 days
   | { kind: 'folder'; folderId: FolderId }
 
 export type Filter = {

@@ -56,6 +56,7 @@ create table media (
   duration_ms integer,              -- videos
   has_audio integer not null,       -- 0/1; speech stage only when 1
   taken_at integer not null,        -- exif/container time, else file mtime (epoch ms)
+  added_at integer not null,        -- first indexed (epoch ms); scope 'recent' = last 30 days
   bytes integer not null,
   codec text,
   sprite text                       -- json Sprite, null until generated
