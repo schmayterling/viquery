@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { EventEmitter } from 'node:events'
 import { createReadStream, existsSync, realpathSync } from 'node:fs'
 import { open, opendir, realpath, stat } from 'node:fs/promises'
-import { basename, extname, join } from 'node:path'
+import { basename, extname, join, sep } from 'node:path'
 import type { SQLInputValue, StatementSync } from 'node:sqlite'
 import type {
   Filter,
@@ -218,23 +218,43 @@ export class Catalog extends EventEmitter<{
 
   async addFolder(
     path: string,
-    beforeScan?: (folderId: number) => Promise<void>,
+    beforeScan?: (path: string, folderId: number) => Promise<void>,
   ): Promise<Folder> {
-    const canonical = await realpath(path)
+    let canonical = await realpath(path)
     if (canonical === this.dataDir)
       throw new Error('cannot index viquery data directory')
     if (!(await stat(canonical)).isDirectory())
       throw new Error('folder must be a directory')
-    this.stmt(
-      'insert into folder(path,added_at) values (?,?) on conflict(path) do nothing',
-    ).run(canonical, Date.now())
-    const folder = this.one<{ id: number }>(
-      'select id from folder where path=?',
-      canonical,
+    // a file belongs to exactly one folder: the outermost library folder containing it.
+    // adding a nested folder resolves to its container; adding a container absorbs nested folders.
+    const existing = this.all<{ id: number; path: string }>(
+      'select id,path from folder',
     )
-    if (!folder) throw new Error('folder was not added')
+    canonical =
+      existing.find((folder) => contains(folder.path, canonical))?.path ??
+      canonical
+    const folder = transaction(this.db, () => {
+      this.stmt(
+        'insert into folder(path,added_at) values (?,?) on conflict(path) do nothing',
+      ).run(canonical, Date.now())
+      const row = this.one<{ id: number }>(
+        'select id from folder where path=?',
+        canonical,
+      ) as { id: number }
+      for (const nested of existing.filter((folder) =>
+        contains(canonical, folder.path),
+      )) {
+        this.stmt('update file set folder_id=? where folder_id=?').run(
+          row.id,
+          nested.id,
+        )
+        this.stmt('delete from offline_folder where id=?').run(nested.id)
+        this.stmt('delete from folder where id=?').run(nested.id)
+      }
+      return row
+    })
     this.notify([])
-    await beforeScan?.(folder.id)
+    await beforeScan?.(canonical, folder.id)
     await this.rescan(folder.id)
     return this.folders().find((entry) => entry.id === folder.id) as Folder
   }
@@ -831,6 +851,10 @@ async function* walk(path: string, ignored: string): AsyncGenerator<string> {
     )
       yield child
   }
+}
+
+function contains(parent: string, child: string): boolean {
+  return child.startsWith(parent.endsWith(sep) ? parent : parent + sep)
 }
 
 function sameFile(

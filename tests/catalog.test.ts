@@ -9,6 +9,7 @@ import {
   rename,
   rm,
   unlink,
+  writeFile,
 } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
@@ -325,4 +326,18 @@ test('catalog folder boundaries: sampled identity, nested folders, missing roots
   await catalog.addFolder(large)
   // a and c are true duplicates; b must not merge into them
   assert.equal(catalog.library(all).ids.length, 2)
+
+  // nested folders: the outer folder owns every file under it
+  const child = join(large, 'child')
+  await mkdir(child)
+  await writeFile(join(child, 'x.jpg'), 'nested')
+  const outer = await catalog.addFolder(large)
+  assert.deepEqual(await catalog.addFolder(child), outer)
+  catalog.removeFolder(outer.id)
+  await catalog.addFolder(child)
+  const absorbed = await catalog.addFolder(large)
+  assert.deepEqual(
+    catalog.folders().map((folder) => [folder.id, folder.count]),
+    [[absorbed.id, 3]],
+  )
 })

@@ -113,9 +113,15 @@ parent.on('message', ({ data, ports }) => {
     serve(mainPort(port), {
       addFolder: async (value: unknown) => {
         if (typeof value !== 'string') throw new Error('invalid folder path')
-        const path = await realpath(value)
         // subscribe before the scan so edits during discovery get reconciled.
-        return catalog.addFolder(path, (folderId) => watch(path, folderId))
+        const folder = await catalog.addFolder(await realpath(value), watch)
+        // nested folders absorbed by this one no longer need their own watcher
+        for (const [path, subscription] of subscriptions) {
+          if (catalog.folders().some((row) => row.path === path)) continue
+          subscriptions.delete(path)
+          await subscription.unsubscribe()
+        }
+        return folder
       },
       lookup: (value: unknown) => catalog.lookup(id(value)),
       rescan: () => rescan(),
