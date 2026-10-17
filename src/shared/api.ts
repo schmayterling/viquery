@@ -6,6 +6,8 @@ export type MediaId = number
 export type FolderId = number
 export type SceneId = number
 
+export type ServiceState = 'ready' | 'recovering' | 'failed'
+
 export type AppInfo = { version: string; platform: string }
 
 export type Folder = {
@@ -130,6 +132,7 @@ export type ViqueryApi = {
   searchVideo(id: MediaId, query: string): Promise<SceneMatch[]> // every scene, time order
 
   pauseIndexing(paused: boolean): Promise<void>
+  onServices(listener: (state: ServiceState) => void): () => void
   onIndex(listener: (state: IndexPhase) => void): () => void
   onLibraryChanged(listener: () => void): () => void
 }
@@ -148,4 +151,5 @@ export const CHANNELS = {
   addFolder: 'app:add-folder',
   reveal: 'app:reveal',
   ports: 'app:ports',
+  services: 'vq:services',
 } as const

@@ -17,6 +17,7 @@ import type {
   IndexPhase,
   MediaKind,
   Scope,
+  ServiceState,
 } from '../../shared/api'
 import { count, minutes, num } from './format'
 
@@ -284,7 +285,17 @@ function IndexStatus() {
     }
   }, [])
 
+  const [services, setServices] = useState<ServiceState>('ready')
+  useEffect(() => window.viquery.onServices(setServices), [])
   const announce = useAnnouncement(state)
+  if (services !== 'ready')
+    return (
+      <div className="side-footer" role="status">
+        {services === 'recovering'
+          ? 'Restarting search and indexing…'
+          : 'Search and indexing stopped. Restart viquery to continue.'}
+      </div>
+    )
   if (!state) return <div className="side-footer" />
 
   const failed =

@@ -39,12 +39,14 @@ export function startSearchUtility(
     if (data.type === 'init') {
       ready = load(data.modelsDir).then((encoders) => {
         engine = new SearchEngine(dataPaths(data.dataDir).db, encoders)
+        process.parentPort?.postMessage({ type: 'ready' })
         return engine
       })
       // Observe startup errors immediately; waiting renderer calls still receive the rejection.
-      ready.catch((error: unknown) =>
-        console.error('search startup failed', error),
-      )
+      ready.catch((error: unknown) => {
+        console.error('search startup failed', error)
+        if (process.parentPort) process.exit(1)
+      })
       return
     }
     const port = ports[0]

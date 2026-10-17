@@ -41,6 +41,7 @@ export function emit(port: Port, event: string, data: unknown): void {
 
 export function connect(port: Port) {
   let next = 0
+  let failure: Error | undefined
   const pending = new Map<
     number,
     { resolve(v: unknown): void; reject(e: Error): void }
@@ -60,11 +61,17 @@ export function connect(port: Port) {
   })
   return {
     call<T>(method: string, params?: unknown): Promise<T> {
+      if (failure) return Promise.reject(failure)
       const id = next++
       return new Promise<T>((resolve, reject) => {
         pending.set(id, { resolve: resolve as (v: unknown) => void, reject })
         port.post({ id, method, params } satisfies Request)
       })
+    },
+    disconnect(error = new Error('service disconnected')) {
+      failure = error
+      for (const call of pending.values()) call.reject(error)
+      pending.clear()
     },
     on(event: string, fn: (data: unknown) => void): () => void {
       const set = listeners.get(event) ?? new Set()

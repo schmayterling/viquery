@@ -3,6 +3,7 @@ import { access } from 'node:fs/promises'
 import { constants as osConstants, setPriority } from 'node:os'
 import { delimiter, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { setTimeout as delay } from 'node:timers/promises'
 import { pathToFileURL } from 'node:url'
 import {
   app,
@@ -24,7 +25,12 @@ import type { CatalogReady } from '../catalog/index'
 import catalogPath from '../catalog/index.ts?modulePath'
 import computePath from '../compute/index.ts?modulePath'
 import searchPath from '../search/index.ts?modulePath'
-import { type AppInfo, CHANNELS, type Folder } from '../shared/api'
+import {
+  type AppInfo,
+  CHANNELS,
+  type Folder,
+  type ServiceState,
+} from '../shared/api'
 import { dataPaths } from '../shared/paths'
 import type { Peer, UtilityMessage } from '../shared/protocol'
 import { type Client, connect, mainPort } from '../shared/rpc'
@@ -46,7 +52,11 @@ protocol.registerSchemesAsPrivileged([
   },
 ])
 
-const utilities: UtilityProcess[] = []
+const utilities = new Set<UtilityProcess>()
+let serviceState: ServiceState = 'ready'
+let booted = false
+let recovering = false
+let restarts = 0
 let catalog: Client
 let workers: {
   catalog: UtilityProcess
@@ -66,7 +76,7 @@ function spawn(path: string, name: string): UtilityProcess {
     serviceName: `viquery ${name}`,
     stdio: 'pipe',
   })
-  utilities.push(child)
+  utilities.add(child)
   child.stdout?.on('data', (data) => process.stdout.write(`[${name}] ${data}`))
   child.stderr?.on('data', (data) => process.stderr.write(`[${name}] ${data}`))
   child.on('spawn', () => {
@@ -81,10 +91,11 @@ function spawn(path: string, name: string): UtilityProcess {
   })
   child.on('error', (error) => console.error(`${name} utility:`, error))
   child.on('exit', (code) => {
-    if (!quitting)
-      console.error(
-        `${name} utility exited (${code}); restart viquery to resume`,
-      )
+    utilities.delete(child)
+    if (!quitting && booted && !recovering) {
+      console.error(`${name} utility exited (${code})`)
+      void recoverUtilities()
+    }
   })
   return child
 }
@@ -154,24 +165,36 @@ async function startUtilities(): Promise<void> {
       reject(new Error(`catalog exited during startup (${code})`)),
     )
   })
+  const searchReady = new Promise<void>((resolve, reject) => {
+    workers.search.on('message', (message: CatalogReady) => {
+      if (message.type === 'ready') resolve()
+    })
+    workers.search.once('exit', (code) =>
+      reject(new Error(`search exited during startup (${code})`)),
+    )
+  })
+  // Observe both startup failures even if catalog fails before search is awaited.
+  void searchReady.catch(() => {})
   workers.catalog.postMessage(init)
   await ready
-  db = new DatabaseSync(dataPaths(dataDir).db, { readOnly: true })
-  db.exec('pragma query_only=on')
-  protocol.handle(
-    'vq',
-    mediaHandler(
-      dataPaths(dataDir),
-      (id) =>
-        db
-          .prepare(`
+  if (!db) {
+    db = new DatabaseSync(dataPaths(dataDir).db, { readOnly: true })
+    db.exec('pragma query_only=on')
+    protocol.handle(
+      'vq',
+      mediaHandler(
+        dataPaths(dataDir),
+        (id) =>
+          db
+            .prepare(`
     select f.path,d.path as root,f.size,f.mtime_ms as mtimeMs
     from file f join folder d on d.id=f.folder_id where f.media_id=? order by f.id
   `)
-          .all(id) as MediaLocation[],
-      new URL(rendererURL).origin,
-    ),
-  )
+            .all(id) as MediaLocation[],
+        new URL(rendererURL).origin,
+      ),
+    )
+  }
   workers.compute.postMessage(init)
   workers.search.postMessage(init)
   const { port1, port2 } = new MessageChannelMain()
@@ -179,6 +202,59 @@ async function startUtilities(): Promise<void> {
   sendPort(workers.catalog, 'main', port2)
   link(workers.catalog, 'catalog', workers.compute, 'compute')
   link(workers.catalog, 'catalog', workers.search, 'search')
+  await searchReady
+}
+
+function connectRenderer(win: BrowserWindow): void {
+  const catalogChannel = new MessageChannelMain()
+  const searchChannel = new MessageChannelMain()
+  sendPort(workers.catalog, 'renderer', catalogChannel.port1)
+  sendPort(workers.search, 'renderer', searchChannel.port1)
+  win.webContents.postMessage(CHANNELS.ports, null, [
+    catalogChannel.port2,
+    searchChannel.port2,
+  ])
+}
+
+function services(state: ServiceState): void {
+  serviceState = state
+  for (const win of BrowserWindow.getAllWindows())
+    win.webContents.send(CHANNELS.services, state)
+}
+
+async function stopUtilities(): Promise<void> {
+  catalog?.disconnect()
+  await Promise.all(
+    [...utilities].map(
+      (child) =>
+        new Promise<void>((resolve) => {
+          child.once('exit', () => resolve())
+          child.kill()
+        }),
+    ),
+  )
+}
+
+async function recoverUtilities(): Promise<void> {
+  recovering = true
+  services('recovering')
+  await stopUtilities()
+  while (!quitting && restarts < 3) {
+    await delay(500 * 3 ** restarts++)
+    try {
+      await startUtilities()
+      if (quitting) return
+      for (const win of BrowserWindow.getAllWindows()) connectRenderer(win)
+      services('ready')
+      recovering = false
+      return
+    } catch (error) {
+      console.error('service restart:', error)
+      await stopUtilities()
+    }
+  }
+  if (!quitting) services('failed')
+  recovering = false
 }
 
 function trusted(event: IpcMainInvokeEvent): BrowserWindow {
@@ -250,14 +326,8 @@ function createWindow(): void {
     if (url !== rendererURL) event.preventDefault()
   })
   win.webContents.on('did-finish-load', () => {
-    const catalogChannel = new MessageChannelMain()
-    const searchChannel = new MessageChannelMain()
-    sendPort(workers.catalog, 'renderer', catalogChannel.port1)
-    sendPort(workers.search, 'renderer', searchChannel.port1)
-    win.webContents.postMessage(CHANNELS.ports, null, [
-      catalogChannel.port2,
-      searchChannel.port2,
-    ])
+    if (serviceState === 'ready') connectRenderer(win)
+    win.webContents.send(CHANNELS.services, serviceState)
   })
   win.on('focus', () => {
     void catalog.call('rescan').catch(console.error)
@@ -291,6 +361,7 @@ if (primary)
         callback({ cancel: remote && !dev })
       })
       await startUtilities()
+      booted = true
       ipcMain.handle(CHANNELS.appInfo, (event): AppInfo => {
         trusted(event)
         return { version: app.getVersion(), platform: process.platform }

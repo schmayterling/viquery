@@ -693,6 +693,10 @@ export async function install() {
       index.paused = paused
       for (const l of indexListeners) l(phase())
     },
+    onServices: (listener) => {
+      listener('ready')
+      return () => {}
+    },
     onIndex: (listener) => {
       indexListeners.add(listener)
       listener(phase())
